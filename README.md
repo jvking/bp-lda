@@ -90,11 +90,7 @@ result_Voc5000.perf and result_Voc5000.testscore: performance file and test scor
 
 --MaxThreadDeg: Threads parameter
 
---T_value: Initial step-size for mirror descent (Chosen to be one if alpha>1, and chosen to be 0.01 if alpha<1)
-
 --DebugLevel: high/low/medium
-
---flag_AdaptivenHidLayer: Choose to be false for alpha>1 and choose to be true for alpha<1  
 
 --flag_RunningAvg: true to smooth the training process (more stable model)
 
