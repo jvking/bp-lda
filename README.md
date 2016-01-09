@@ -94,5 +94,3 @@ SupLDA_UnfoldBP.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputTy
 --flag_RunningAvg: true to smooth the training process (more stable model)
 
 --flag_SaveAllModels: true means saving models at different epochs separately, and false means only saving the model at the last epoch
-
---ExternalEval: external batch file for evaluating AUC etc. (The code will automatically evaluate the test error. If you want to evaluate other metrics, then you have to specify the exe/bat file for evaluation.)
