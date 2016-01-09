@@ -4,6 +4,13 @@ Backpropagation Latent Dirichlet Allocation (reimplementation of paper "End-to-e
 This paper is accepted by NIPS 2015.
 Link to this paper: http://papers.nips.cc/paper/5967-end-to-end-learning-of-lda-by-mirror-descent-back-propagation-over-a-deep-architecture.pdf
 
+To run the codes, there are two executables (one depends on the other). You need to copy both executables to the same working directory.
+bp-lda/SupLDA_UnfoldBP/bin/x64/Release/SupLDA_UnfoldBP.exe # for supervised task
+bp-lda/SupLDA_UnfoldBP/bin/x64/Release/UnsupLDA_UnfoldBP.exe # for unsupervised task
+
+# For Windows users, simply open a command prompt window and run "SupLDA_UnfoldBP.exe" or "UnsupLDA_UnfoldBP.exe"
+# For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Then, open a terminal and run "mono SupLDA_UnfoldBP.exe" or "mono UnsupLDA_UnfoldBP.exe"
+
 Here is a brief explanation on command line arguments:
 
 --nHid: Number of topics
@@ -14,7 +21,7 @@ Here is a brief explanation on command line arguments:
 
 --nOutput: Number of output classes
 
---OutputType: “softmaxCE” means classification with softmax and cross entropy
+--OutputType: “softmaxCE” means classification with softmax and cross entropy, "linearQuad" means linear quadratic (L2) loss
 
 --alpha: Dirichlet parameter of the topics
 
