@@ -1,0 +1,2900 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using LinearAlgebra;
+using System.Diagnostics;
+using Common;
+using System.IO;
+
+namespace UnsupLDA_UnfoldBP
+{
+    public static class LDA_Learn
+    {
+        /*
+         * Precompute learning rate schedule
+         */
+        public static double[] PrecomputeLearningRateSchedule(int nBatch, int nEpoch, double LearnRateStart, double LearnRateEnd, double Accuracy)
+        {
+            // Initialization
+            double[] LearningRatePool = new double[nEpoch];
+            LearningRatePool[nEpoch - 1] = LearnRateEnd;
+            double b_min = 0;
+            double b_max = 0;
+            int iter = 0;
+            double b;
+            bool upper_flag;
+            bool lower_flag;
+
+            if (LearnRateEnd > LearnRateStart)
+            {
+                throw new System.ArgumentException("LearnRateEnd should be smaller than LearnRateStart");
+            }
+
+            // Precompute the optimal b by bi-section
+            while (Math.Abs(LearningRatePool[0] - LearnRateStart) > Accuracy * LearnRateStart)
+            {
+                // Upper value of b
+                b = b_max;
+                for (int k = (nEpoch - 1); k >= 1; k--)
+                {
+                    LearningRatePool[k - 1] = 0.5 * (1 + 1 / (Math.Pow((1 - LearningRatePool[k] * b), 2 * nBatch))) * LearningRatePool[k];
+                }
+                upper_flag = ((LearningRatePool[0] > LearnRateStart) || (b * LearningRatePool.Max() >= 2)) ? true : false;
+
+                // Lower value of b
+                b = b_min;
+                for (int k = (nEpoch - 1); k >= 1; k--)
+                {
+                    LearningRatePool[k - 1] = 0.5 * (1 + 1 / (Math.Pow((1 - LearningRatePool[k] * b), 2 * nBatch))) * LearningRatePool[k];
+                }
+                lower_flag = ((LearningRatePool[0] <= LearnRateStart) || (b * LearningRatePool.Max() < 2)) ? true : false;
+                if (!lower_flag)
+                {
+                    throw new System.InvalidOperationException("lower_flag cannot be zero");
+                }
+
+                // Update
+                if (!upper_flag)
+                {
+                    b_max = b_max + 1;
+                }
+                else
+                {
+                    b = (b_max + b_min) / 2;
+                    for (int k = (nEpoch - 1); k >= 1; k--)
+                    {
+                        LearningRatePool[k - 1] = 0.5 * (1 + 1 / (Math.Pow((1 - LearningRatePool[k] * b), 2 * nBatch))) * LearningRatePool[k];
+                    }
+                    if ((LearningRatePool[0] > LearnRateStart) || (b * LearningRatePool.Max() > 2))
+                    {
+                        b_max = b;
+                    }
+                    else
+                    {
+                        b_min = b;
+                    }
+                }
+                iter++;
+                if (iter > 1e10)
+                {
+                    throw new System.InvalidOperationException("Maximum number of iterations has reached");
+                }
+            }
+
+            return LearningRatePool;
+        }
+
+        /*
+         * Training: unsupervised learning of feedforward (unfolding) LDA by back propagation
+         */
+        public static void TrainingUnsupLDA_UnfoldBP(
+            SparseMatrix TrainData,
+            SparseMatrix TestData,
+            paramModel_t paramModel,
+            paramTrain_t paramTrain,
+            string ModelFile,
+            string ResultFile
+            )
+        {
+            // ---- Extract the parameters ----
+            // Model parameters
+            int nInput = paramModel.nInput;
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            int nOutput = paramModel.nOutput;
+            float eta = paramModel.eta;
+            float T_value = paramModel.T_value;
+            string OutputType = paramModel.OutputType;
+            float beta = paramModel.beta;
+            // Training parameters
+            int nEpoch = paramTrain.nEpoch;
+            float mu_Phi = paramTrain.mu_Phi;
+            float mu_U = paramTrain.mu_U;
+            int nTrain = paramTrain.nTrain;
+            float mu_Phi_ReduceFactor = paramTrain.mu_Phi_ReduceFactor;
+            string LearnRateSchedule = paramTrain.LearnRateSchedule;
+            int nSamplesPerDisplay = paramTrain.nSamplesPerDisplay;
+            int nEpochPerSave = paramTrain.nEpochPerSave;
+            int nEpochPerTest = paramTrain.nEpochPerTest;
+            int nEpochPerDump = paramTrain.nEpochPerDump;
+            bool flag_ModelInitFromFile = paramTrain.flag_ModelInitFromFile;
+            int BPsteps = paramTrain.BPsteps;
+            float BPthresh = paramTrain.BPthresh;
+
+            // ---- Initialize the model ----
+            if (flag_ModelInitFromFile)
+            {
+                Console.WriteLine("Initializing the model from a saved file has not been implemented.");
+                return;
+            }
+            else
+            {
+                ModelInit_LDA_Feedforward(paramModel);
+            }
+
+            // ---- Initialize the training algorithm ----
+            Console.WriteLine("=================================================================");
+            Console.WriteLine("Unsupervised learning of BP-LDA: Mirror-Descent Back Propagation");
+            Console.WriteLine("=================================================================");
+            float TotLoss = 0.0f;
+            float TotCE = 0.0f;
+            double TotTime = 0.0f;
+            double TotTimeThisEpoch = 0.0f;
+            float TotLearnLineSearch = 0.0f;
+            int TotSamples = 0;
+            int TotSamplesThisEpoch = 0;
+            DenseRowVector mu_phi_search = new DenseRowVector(nHid, mu_Phi);
+            DenseRowVector TestLoss_pool = new DenseRowVector(nEpoch / nEpochPerTest, 0.0f);
+            DenseRowVector TestLoss_epoch = new DenseRowVector(nEpoch / nEpochPerTest, 0.0f);
+            DenseRowVector TestLoss_time = new DenseRowVector(nEpoch / nEpochPerTest, 0.0f);
+            int CountTest = 0;
+            float G_PhiTop = 0.0f;
+            DenseRowVector G_Phi_pool = new DenseRowVector(nHidLayer);
+            DenseRowVector G_Phi_trunc_pool = new DenseRowVector(nHidLayer, 0.0f);
+            int[] SparsePatternGradPhi = null;
+            float nLearnLineSearch = 0.0f;
+            int[] IdxPerm = null;
+            int BatchSize_NormalBatch = paramTrain.BatchSize;
+            int BatchSize_tmp = paramTrain.BatchSize;
+            int nBatch = (int)Math.Ceiling(((float)nTrain) / ((float)BatchSize_NormalBatch));
+            DNNRun_t DNNRun_NormalBatch = new DNNRun_t(nHid, BatchSize_NormalBatch, nHidLayer, nOutput);
+            DNNRun_t DNNRun_EndBatch = new DNNRun_t(nHid, nTrain - (nBatch - 1) * BatchSize_NormalBatch, nHidLayer, nOutput);
+            DNNRun_t DNNRun = null;
+            Grad_t Grad = new Grad_t(nHid, nOutput, nInput, nHidLayer, OutputType);
+            SparseMatrix TmpGrad = new SparseMatrix(nInput, nHid, true);
+            DenseMatrix TmpGradDense = new DenseMatrix(nInput, nHid);
+            Stopwatch stopWatch = new Stopwatch();
+            // ---- Compute the schedule of the learning rate
+            double[] stepsize_pool = null;
+            switch (LearnRateSchedule)
+            {
+                case "PreCompute":
+                    stepsize_pool = PrecomputeLearningRateSchedule(nBatch, nEpoch, mu_Phi, mu_Phi / mu_Phi_ReduceFactor, 1e-8f);
+                    break;
+                case "Constant":
+                    stepsize_pool = new double[nEpoch];
+                    for (int Idx = 0; Idx < nEpoch; Idx++)
+                    {
+                        stepsize_pool[Idx] = mu_Phi;
+                    }
+                    break;
+                default:
+                    throw new Exception("Unknown type of LearnRateSchedule");
+            }
+            // Now start training.........................
+            for (int epoch = 0; epoch < nEpoch; epoch++)
+            {
+                TotSamplesThisEpoch = 0;
+                TotTimeThisEpoch = 0.0;
+                // -- Set the batch size if there is schedule --
+                if (paramTrain.flag_BachSizeSchedule)
+                {
+                    if (paramTrain.BachSizeSchedule.TryGetValue(epoch + 1, out BatchSize_tmp))
+                    {
+                        BatchSize_NormalBatch = BatchSize_tmp;
+                        nBatch = (int)Math.Ceiling(((float)nTrain) / ((float)BatchSize_NormalBatch));
+                        DNNRun_NormalBatch = new DNNRun_t(nHid, BatchSize_NormalBatch, nHidLayer, nOutput);
+                        DNNRun_EndBatch = new DNNRun_t(nHid, nTrain - (nBatch - 1) * BatchSize_NormalBatch, nHidLayer, nOutput);
+                    }
+                }
+
+                // -- Shuffle the data (generating shuffled index) --
+                IdxPerm = Statistics.RandPerm(nTrain);
+                // -- Reset the (MDA) inference step-sizes --
+                if (epoch > 0)
+                {
+                    for (int Idx = 0; Idx < nHidLayer; Idx++)
+                    {
+                        paramModel.T[Idx] = T_value;
+                    }
+                }
+                // -- Take the learning rate for the current epoch --
+                mu_Phi = (float)stepsize_pool[epoch];
+                // -- Start this epoch --
+                Console.WriteLine("============== Epoch #{0}. BatchSize: {1} Learning Rate: {2} ==================", epoch + 1, BatchSize_NormalBatch, mu_Phi);
+                for (int IdxBatch = 0; IdxBatch < nBatch; IdxBatch++)
+                {
+                    stopWatch.Start();
+                    // Extract the batch
+                    int BatchSize = 0;
+                    if (IdxBatch < nBatch - 1)
+                    {
+                        BatchSize = BatchSize_NormalBatch;
+                        DNNRun = DNNRun_NormalBatch;
+                    }
+                    else
+                    {
+                        BatchSize = nTrain - IdxBatch * BatchSize_NormalBatch;
+                        DNNRun = DNNRun_EndBatch;
+                    }
+                    SparseMatrix Xt = new SparseMatrix(nInput, BatchSize);
+                    SparseMatrix Dt = null;
+                    int[] IdxSample = new int[BatchSize];
+                    Array.Copy(IdxPerm, IdxBatch * BatchSize_NormalBatch, IdxSample, 0, BatchSize);
+                    TrainData.GetColumns(Xt, IdxSample);
+                    // Set the sparse pattern of the gradients for Phi (union of the sparse patterns of all samples)
+                    if (Xt.nCols > 1)
+                    {
+                        for (int Idx = 0; Idx < Xt.nCols; Idx++)
+                        {
+                            if (Idx == 0)
+                            {
+                                SparsePatternGradPhi = new int[Xt.SparseColumnVectors[0].nNonzero];
+                                Array.Copy(Xt.SparseColumnVectors[0].Key, SparsePatternGradPhi, Xt.SparseColumnVectors[0].nNonzero);
+                            }
+                            else
+                            {
+                                SparsePatternGradPhi = SparsePatternGradPhi.Union(Xt.SparseColumnVectors[Idx].Key).ToArray<int>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        SparsePatternGradPhi = new int[Xt.SparseColumnVectors[0].nNonzero];
+                        Array.Copy(Xt.SparseColumnVectors[0].Key, SparsePatternGradPhi, Xt.SparseColumnVectors[0].nNonzero);
+                    }
+                    Grad.SetSparsePatternForAllGradPhi(SparsePatternGradPhi);
+                    TmpGrad.SetSparsePatternForAllColumn(SparsePatternGradPhi);
+
+                    // Forward activation
+                    LDA_Learn.ForwardActivation_LDA(Xt, DNNRun, paramModel);
+
+                    // Back propagation
+                    LDA_Learn.BackPropagation_LDA(Xt, Dt, DNNRun, paramModel, Grad);
+
+                    // Compute the gradient and update the model (All gradients of Phi are accumulated into Grad.grad_Q_Phi)
+                    MatrixOperation.ScalarDivideMatrix(Grad.grad_Q_Phi, (-1.0f) * ((beta - 1) / ((float)nTrain)), paramModel.Phi);
+                    MatrixOperation.MatrixAddMatrix(Grad.grad_Q_Phi, Grad.grad_Q_TopPhi);
+                    Projection.ProjCols2OrthogonalSimplexPlane(TmpGrad, Grad.grad_Q_TopPhi);
+                    G_PhiTop = TmpGrad.MaxAbsValue();
+                    for (int IdxLayer = nHidLayer - 1; IdxLayer >= Math.Max(nHidLayer - BPsteps, 0); IdxLayer--)
+                    {
+                        Projection.ProjCols2OrthogonalSimplexPlane(TmpGrad, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        G_Phi_pool.VectorValue[IdxLayer] = TmpGrad.MaxAbsValue();
+                        if (IdxLayer == nHidLayer - 1)
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 1.0f;
+                            MatrixOperation.MatrixAddMatrix(Grad.grad_Q_Phi, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        }
+                        else if (G_Phi_pool.VectorValue[IdxLayer] < BPthresh * G_Phi_pool.VectorValue[nHidLayer - 1])
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 1.0f;
+                            MatrixOperation.MatrixAddMatrix(Grad.grad_Q_Phi, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        }
+                        else
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 0.0f;
+                        }
+                    }
+                    mu_phi_search.FillValue(mu_Phi);
+                    nLearnLineSearch = PSGD_Update(paramModel.Phi, Grad.grad_Q_Phi, mu_phi_search, eta);
+                    TotLearnLineSearch += nLearnLineSearch;
+
+
+
+                    // Display the result
+                    TotCE += ComputeCrossEntropy(Xt, paramModel.Phi, DNNRun.theta_pool[nHidLayer - 1]);
+                    TotLoss += ComputeRegularizedCrossEntropy(Xt, paramModel.Phi, DNNRun.theta_pool[nHidLayer - 1], paramModel.b);
+                    TotSamples += BatchSize;
+                    TotSamplesThisEpoch += BatchSize;
+                    stopWatch.Stop();
+                    TimeSpan ts = stopWatch.Elapsed;
+                    TotTime += ts.TotalSeconds;
+                    TotTimeThisEpoch += ts.TotalSeconds;
+                    stopWatch.Reset();
+                    if (TotSamplesThisEpoch % nSamplesPerDisplay == 0)
+                    {
+                        // Display results
+                        Console.WriteLine(
+                            "- Ep#{0}/{1} Bat#{2}/{3}. Loss={4:F3}. CE={5:F3}. G_PhiTop={6:F2}",
+                            epoch + 1, nEpoch,
+                            IdxBatch + 1, nBatch,
+                            TotLoss / TotSamples, TotCE / TotSamples,
+                            G_PhiTop
+                            );
+                        Console.WriteLine(
+                            "  nLineSearch={0}/Bat Time={1} Sec/Sample",
+                            ((float)TotLearnLineSearch) / ((float)(epoch * nBatch + IdxBatch + 1)),
+                            TotTimeThisEpoch / TotSamplesThisEpoch
+                            );
+                        Console.WriteLine(
+                            "  mu_phi_search_max={0} \n  mu_phi_search_min={1}\n",
+                            mu_phi_search.VectorValue.Max(), mu_phi_search.VectorValue.Min()
+                            );
+                        Console.WriteLine(
+                            "  G_Phi(Low:Up)={0:F2} G_PhiTop={1:F2}",
+                            string.Join(" ", MatrixOperation.ElementwiseVectorMultiplyVector(G_Phi_pool, G_Phi_trunc_pool).VectorValue),
+                            G_PhiTop
+                            );
+                        Console.WriteLine("----------------------------------------------------");
+                    }
+                }
+                // -- Test --
+                if ((epoch + 1) % nEpochPerTest == 0)
+                {
+                    TestLoss_epoch.VectorValue[(epoch + 1) / nEpochPerTest - 1] = epoch + 1;
+                    TestLoss_time.VectorValue[(epoch + 1) / nEpochPerTest - 1] = (float)TotTime;
+                    TestLoss_pool.VectorValue[(epoch + 1) / nEpochPerTest - 1] = Testing_UnsupLDA_UnfoldBP(TestData, paramModel, paramTrain.BatchSize_Test);
+                    CountTest++;
+                }
+
+                // -- Save --
+                if ((epoch + 1) % nEpochPerSave == 0)
+                {
+                    // Save model
+                    string PhiCol = null;
+                    (new FileInfo(ResultFile + ".model.Phi")).Directory.Create();
+                    StreamWriter FileSaveModel = new StreamWriter(ResultFile + ".model.Phi", false);
+                    for (int IdxCol = 0; IdxCol < paramModel.Phi.nCols; IdxCol++)
+                    {
+                        PhiCol = String.Join("\t", paramModel.Phi.DenseMatrixValue[IdxCol].VectorValue);
+                        FileSaveModel.WriteLine(PhiCol);
+                    }
+                    FileSaveModel.Close();
+                    // Save the final learning curves
+                    StreamWriter FileSavePerf = new StreamWriter(ResultFile + ".perf", false);
+                    FileSavePerf.WriteLine(String.Join("\t", TestLoss_epoch.VectorValue));
+                    FileSavePerf.WriteLine(String.Join("\t", TestLoss_time.VectorValue));
+                    FileSavePerf.WriteLine(String.Join("\t", TestLoss_pool.VectorValue));
+                    FileSavePerf.Close();
+                }
+
+                // -- Dump feature --
+                if (paramTrain.flag_DumpFeature && (epoch + 1) % nEpochPerDump == 0)
+                {
+                    DumpingFeature_UnsupLDA_UnfoldBP(TrainData, paramModel, paramTrain.BatchSize_Test, ResultFile + ".train.fea", "Train");
+                    DumpingFeature_UnsupLDA_UnfoldBP(TestData, paramModel, paramTrain.BatchSize_Test, ResultFile + ".test.fea", "Test");
+                }
+
+
+            }
+        }
+
+
+
+        /*
+         * Training: supervised learning of feedforward (unfolding) LDA by back propagation
+         */
+        public static void TrainingSupLDA_UnfoldBP(
+            SparseMatrix TrainData,
+            SparseMatrix TrainLabel,
+            SparseMatrix TestData,
+            SparseMatrix TestLabel,
+            paramModel_t paramModel,
+            paramTrain_t paramTrain,
+            string ModelFile,
+            string ResultFile
+            )
+        {
+            Console.WriteLine("=================================================================");
+            Console.WriteLine("Supervised learning of BP-sLDA: Mirror-Descent Back Propagation");
+            Console.WriteLine("=================================================================");
+            // ---- Extract the parameters ----
+            // Model parameters
+            int nInput = paramModel.nInput;
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            int nOutput = paramModel.nOutput;
+            float eta = paramModel.eta;
+            float T_value = paramModel.T_value;
+            string OutputType = paramModel.OutputType;
+            float beta = paramModel.beta;
+            // Training parameters
+            int nEpoch = paramTrain.nEpoch;
+            float mu_Phi = paramTrain.mu_Phi;
+            float mu_U = paramTrain.mu_U;
+            int nTrain = paramTrain.nTrain;
+            float mu_ReduceFactor = paramTrain.mu_Phi_ReduceFactor;
+            string LearnRateSchedule = paramTrain.LearnRateSchedule;
+            int nSamplesPerDisplay = paramTrain.nSamplesPerDisplay;
+            int nEpochPerSave = paramTrain.nEpochPerSave;
+            int nEpochPerTest = paramTrain.nEpochPerTest;
+            int nEpochPerDump = paramTrain.nEpochPerDump;
+            bool flag_ModelInitFromFile = paramTrain.flag_ModelInitFromFile;
+            int BPsteps = paramTrain.BPsteps;
+            float BPthresh = paramTrain.BPthresh;
+            
+
+            // ---- Initialize the model ----
+            if (paramTrain.nSeed == 0)
+            {
+                if (flag_ModelInitFromFile)
+                {
+                    // ModelInit_LDA_Feedforward(paramModel, ModelFile);
+                    throw new Exception("Initialzation from a model file has not been implemented.");
+                }
+                else
+                {
+                    ModelInit_LDA_Feedforward(paramModel);
+                }
+            }
+            else
+            {
+                SeedSelectionTrainingSupLDA_UnfoldBP(TrainData, TrainLabel, paramModel, paramTrain, ModelFile, ResultFile);
+            }
+
+            // ---- Initialize the training algorithm ----
+            float TotLoss = 0.0f;
+            float TotTrErr = 0.0f;
+            double TotTime = 0.0f;
+            double TotTimeThisEpoch = 0.0f;
+            float TotLearnLineSearch = 0.0f;
+            int TotSamples = 0;
+            int TotSamplesThisEpoch = 0;
+            DenseRowVector mu_phi_search = new DenseRowVector(nHid, mu_Phi);
+            DenseRowVector TestError_pool = new DenseRowVector(nEpoch / nEpochPerTest, 0.0f);
+            DenseRowVector TestError_epoch = new DenseRowVector(nEpoch / nEpochPerTest, 0.0f);
+            DenseRowVector TestError_time = new DenseRowVector(nEpoch / nEpochPerTest, 0.0f);
+            int CountTest = 0;
+            float G_U = 0.0f;
+            DenseRowVector G_Phi_pool = new DenseRowVector(nHidLayer);
+            DenseRowVector G_Phi_trunc_pool = new DenseRowVector(nHidLayer, 0.0f);
+            int[] SparsePatternGradPhi = null;
+            float nLearnLineSearch = 0.0f;
+            int[] IdxPerm = null;
+            int BatchSize_NormalBatch = paramTrain.BatchSize;
+            int BatchSize_tmp = paramTrain.BatchSize;
+            int nBatch = (int)Math.Ceiling(((float)nTrain) / ((float)BatchSize_NormalBatch));
+            DNNRun_t DNNRun_NormalBatch = new DNNRun_t(nHid, BatchSize_NormalBatch, nHidLayer, nOutput);
+            DNNRun_t DNNRun_EndBatch = new DNNRun_t(nHid, nTrain - (nBatch - 1) * BatchSize_NormalBatch, nHidLayer, nOutput);
+            DNNRun_t DNNRun = null;
+            Grad_t Grad = new Grad_t(nHid, nOutput, nInput, nHidLayer, OutputType);
+            SparseMatrix TmpGrad = new SparseMatrix(nInput, nHid, true);
+            DenseMatrix TmpGradDense = new DenseMatrix(nInput, nHid);
+            Stopwatch stopWatch = new Stopwatch();
+            // ---- Compute the schedule of the learning rate
+            double[] stepsize_pool_Phi = null;
+            double[] stepsize_pool_U = null;
+            switch (LearnRateSchedule)
+            {
+                case "PreCompute":
+                    stepsize_pool_Phi = PrecomputeLearningRateSchedule(nBatch, nEpoch, mu_Phi, mu_Phi / mu_ReduceFactor, 1e-8f);
+                    stepsize_pool_U = PrecomputeLearningRateSchedule(nBatch, nEpoch, mu_U, mu_U / mu_ReduceFactor, 1e-8f);
+                    break;
+                case "Constant":
+                    stepsize_pool_Phi = new double[nEpoch];
+                    stepsize_pool_U = new double[nEpoch];
+                    for (int Idx = 0; Idx < nEpoch; Idx++)
+                    {
+                        stepsize_pool_Phi[Idx] = mu_Phi;
+                        stepsize_pool_U[Idx] = mu_U;
+                    }
+                    break;
+                default:
+                    throw new Exception("Unknown type of LearnRateSchedule");
+            }
+            // Now start training.........................
+            for (int epoch = 0; epoch < nEpoch; epoch++)
+            {
+                TotSamplesThisEpoch = 0;
+                TotTimeThisEpoch = 0.0;
+                // -- Set the batch size if there is schedule --
+                if (paramTrain.flag_BachSizeSchedule)
+                {
+                    if (paramTrain.BachSizeSchedule.TryGetValue(epoch + 1, out BatchSize_tmp))
+                    {
+                        BatchSize_NormalBatch = BatchSize_tmp;
+                        nBatch = (int)Math.Ceiling(((float)nTrain) / ((float)BatchSize_NormalBatch));
+                        DNNRun_NormalBatch = new DNNRun_t(nHid, BatchSize_NormalBatch, nHidLayer, nOutput);
+                        DNNRun_EndBatch = new DNNRun_t(nHid, nTrain - (nBatch - 1) * BatchSize_NormalBatch, nHidLayer, nOutput);
+                    }
+                }
+
+                // -- Shuffle the data (generating shuffled index) --
+                IdxPerm = Statistics.RandPerm(nTrain);
+                // -- Reset the (MDA) inference step-sizes --
+                if (epoch > 0)
+                {
+                    for (int Idx = 0; Idx < nHidLayer; Idx++)
+                    {
+                        paramModel.T[Idx] = T_value;
+                    }
+                }
+                // -- Take the learning rate for the current epoch --
+                mu_Phi = (float)stepsize_pool_Phi[epoch];
+                mu_U = (float)stepsize_pool_U[epoch];
+                // -- Start this epoch --
+                Console.WriteLine("============== Epoch #{0}. BatchSize: {1} Learning Rate: Phi:{2}, U:{3} ==================",
+                    epoch + 1, BatchSize_NormalBatch, mu_Phi, mu_U);
+                for (int IdxBatch = 0; IdxBatch < nBatch; IdxBatch++)
+                {
+                    stopWatch.Start();
+                    // Extract the batch
+                    int BatchSize = 0;
+                    if (IdxBatch < nBatch - 1)
+                    {
+                        BatchSize = BatchSize_NormalBatch;
+                        DNNRun = DNNRun_NormalBatch;
+                    }
+                    else
+                    {
+                        BatchSize = nTrain - IdxBatch * BatchSize_NormalBatch;
+                        DNNRun = DNNRun_EndBatch;
+                    }
+                    SparseMatrix Xt = new SparseMatrix(nInput, BatchSize);
+                    SparseMatrix Dt = new SparseMatrix(nOutput, BatchSize);
+                    int[] IdxSample = new int[BatchSize];
+                    Array.Copy(IdxPerm, IdxBatch * BatchSize_NormalBatch, IdxSample, 0, BatchSize);
+                    TrainData.GetColumns(Xt, IdxSample);
+                    TrainLabel.GetColumns(Dt, IdxSample);
+                    // Set the sparse pattern of the gradients for Phi (union of the sparse patterns of all samples)
+                    if (Xt.nCols > 1)
+                    {
+                        for (int Idx = 0; Idx < Xt.nCols; Idx++)
+                        {
+                            if (Idx == 0)
+                            {
+                                SparsePatternGradPhi = new int[Xt.SparseColumnVectors[0].nNonzero];
+                                Array.Copy(Xt.SparseColumnVectors[0].Key, SparsePatternGradPhi, Xt.SparseColumnVectors[0].nNonzero);
+                            }
+                            else
+                            {
+                                SparsePatternGradPhi = SparsePatternGradPhi.Union(Xt.SparseColumnVectors[Idx].Key).ToArray<int>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        SparsePatternGradPhi = new int[Xt.SparseColumnVectors[0].nNonzero];
+                        Array.Copy(Xt.SparseColumnVectors[0].Key, SparsePatternGradPhi, Xt.SparseColumnVectors[0].nNonzero);
+                    }
+                    Grad.SetSparsePatternForAllGradPhi(SparsePatternGradPhi);
+                    TmpGrad.SetSparsePatternForAllColumn(SparsePatternGradPhi);
+
+                    // Forward activation
+                    LDA_Learn.ForwardActivation_LDA(Xt, DNNRun, paramModel);
+
+                    // Back propagation
+                    LDA_Learn.BackPropagation_LDA(Xt, Dt, DNNRun, paramModel, Grad);
+
+                    // Compute the gradient and update the model (All gradients of Phi are accumulated into Grad.grad_Q_Phi)
+                    // (i) Update Phi
+                    MatrixOperation.ScalarDivideMatrix(Grad.grad_Q_Phi, (-1.0f) * ((beta - 1) / ((float)nTrain)), paramModel.Phi);                    
+                    G_U = Grad.grad_Q_U.MaxAbsValue();
+                    for (int IdxLayer = nHidLayer - 1; IdxLayer >= Math.Max(nHidLayer - BPsteps, 0); IdxLayer--)
+                    {
+                        Projection.ProjCols2OrthogonalSimplexPlane(TmpGrad, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        G_Phi_pool.VectorValue[IdxLayer] = TmpGrad.MaxAbsValue();
+                        if (IdxLayer == nHidLayer - 1)
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 1.0f;
+                            MatrixOperation.MatrixAddMatrix(Grad.grad_Q_Phi, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        }
+                        else if (G_Phi_pool.VectorValue[IdxLayer] < BPthresh * G_Phi_pool.VectorValue[nHidLayer - 1])
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 1.0f;
+                            MatrixOperation.MatrixAddMatrix(Grad.grad_Q_Phi, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        }
+                        else
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 0.0f;
+                        }
+                    }
+                    mu_phi_search.FillValue(mu_Phi);
+                    nLearnLineSearch = PSGD_Update(paramModel.Phi, Grad.grad_Q_Phi, mu_phi_search, eta);
+                    TotLearnLineSearch += nLearnLineSearch;
+                    // (ii) Update U
+                    MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_U, (-1.0f) * mu_U);
+                    MatrixOperation.MatrixAddMatrix(paramModel.U, Grad.grad_Q_U);
+
+                    // Display the result
+                    TotTrErr += 100 * ComputeNumberOfErrors(Dt, DNNRun.y);
+                    TotLoss += ComputeSupervisedLoss(Dt, DNNRun.y, paramModel.OutputType);
+                    TotSamples += BatchSize;
+                    TotSamplesThisEpoch += BatchSize;
+                    stopWatch.Stop();
+                    TimeSpan ts = stopWatch.Elapsed;
+                    TotTime += ts.TotalSeconds;
+                    TotTimeThisEpoch += ts.TotalSeconds;
+                    stopWatch.Reset();
+                    if (TotSamplesThisEpoch % nSamplesPerDisplay == 0)
+                    {
+                        // Display results
+                        Console.WriteLine(
+                            "- Ep#{0}/{1} Bat#{2}/{3}. Loss={4:F3}. TrErr={5:F3}%. G_U={6:F2}",
+                            epoch + 1, nEpoch,
+                            IdxBatch + 1, nBatch,
+                            TotLoss / TotSamples, TotTrErr / TotSamples,
+                            G_U
+                            );
+                        Console.WriteLine(
+                            "  nLineSearch={0}/Bat Time={1} Sec/Sample",
+                            ((float)TotLearnLineSearch) / ((float)(epoch * nBatch + IdxBatch + 1)),
+                            TotTimeThisEpoch / TotSamplesThisEpoch
+                            );
+                        Console.WriteLine(
+                            "  mu_phi_search_max={0} \n  mu_phi_search_min={1}\n",
+                            mu_phi_search.VectorValue.Max(), mu_phi_search.VectorValue.Min()
+                            );
+                        Console.WriteLine(
+                            "  G_Phi(Low:Up)={0:F2} G_U={1:F2}",
+                            string.Join(" ", MatrixOperation.ElementwiseVectorMultiplyVector(G_Phi_pool, G_Phi_trunc_pool).VectorValue),
+                            G_U
+                            );
+                        Console.WriteLine("----------------------------------------------------");
+                    }
+                }
+                // -- Test --
+                if ((epoch + 1) % nEpochPerTest == 0)
+                {
+                    TestError_epoch.VectorValue[(epoch + 1) / nEpochPerTest - 1] = epoch + 1;
+                    TestError_time.VectorValue[(epoch + 1) / nEpochPerTest - 1] = (float)TotTime;
+                    TestError_pool.VectorValue[(epoch + 1) / nEpochPerTest - 1]
+                        = Testing_SupLDA_UnfoldBP(TestData, TestLabel, paramModel, paramTrain.BatchSize_Test, ResultFile + ".testscore");
+                    CountTest++;
+                }
+
+                // -- Save --
+                if ((epoch + 1) % nEpochPerSave == 0)
+                {
+                    // Save model
+                    string PhiCol = null;
+                    string UCol = null;
+                    (new FileInfo(ResultFile + ".model.Phi")).Directory.Create();
+                    StreamWriter FileSaveModel_Phi = new StreamWriter(ResultFile + ".model.Phi", false);
+                    for (int IdxCol = 0; IdxCol < paramModel.Phi.nCols; IdxCol++)
+                    {
+                        PhiCol = String.Join("\t", paramModel.Phi.DenseMatrixValue[IdxCol].VectorValue);
+                        FileSaveModel_Phi.WriteLine(PhiCol);
+                    }
+                    FileSaveModel_Phi.Close();
+                    StreamWriter FileSaveModel_U = new StreamWriter(ResultFile + ".model.U", false);
+                    for (int IdxCol = 0; IdxCol < paramModel.U.nCols; IdxCol++)
+                    {
+                        UCol = String.Join("\t", paramModel.U.DenseMatrixValue[IdxCol].VectorValue);
+                        FileSaveModel_U.WriteLine(UCol);
+                    }
+                    FileSaveModel_U.Close();
+                    // Save the final learning curves
+                    StreamWriter FileSavePerf = new StreamWriter(ResultFile + ".perf", false);
+                    FileSavePerf.WriteLine(String.Join("\t", TestError_epoch.VectorValue));
+                    FileSavePerf.WriteLine(String.Join("\t", TestError_time.VectorValue));
+                    FileSavePerf.WriteLine(String.Join("\t", TestError_pool.VectorValue));
+                    FileSavePerf.Close();
+                }
+
+                // -- Dump feature --
+                if (paramTrain.flag_DumpFeature && (epoch + 1) % nEpochPerDump == 0)
+                {
+                    DumpingFeature_UnsupLDA_UnfoldBP(TrainData, paramModel, paramTrain.BatchSize_Test, ResultFile + ".train.fea", "Train");
+                    DumpingFeature_UnsupLDA_UnfoldBP(TestData, paramModel, paramTrain.BatchSize_Test, ResultFile + ".test.fea", "Test");
+                }
+
+
+            }
+            
+
+        }
+
+        /*
+         * Training: supervised learning of feedforward (unfolding) LDA by back propagation (Untied parameters across layers)
+         */
+        public static void TrainingSupLDA_UnfoldBP_Untied(
+            SparseMatrix TrainData,
+            SparseMatrix TrainLabel,
+            SparseMatrix TestData,
+            SparseMatrix TestLabel,
+            paramModel_t paramModel,
+            paramTrain_t paramTrain,
+            string ModelFile,
+            string ResultFile
+            )
+        {
+            Console.WriteLine("========================================================================");
+            Console.WriteLine("Supervised learning of BP-sLDA (untied): Mirror-Descent Back Propagation");
+            Console.WriteLine("========================================================================");
+            // ---- Extract the parameters ----
+            // Model parameters
+            int nInput = paramModel.nInput;
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            int nOutput = paramModel.nOutput;
+            float eta = paramModel.eta;
+            float T_value = paramModel.T_value;
+            string OutputType = paramModel.OutputType;
+            float beta = paramModel.beta;
+            // Training parameters
+            int nEpoch = paramTrain.nEpoch;
+            float mu_Phi = paramTrain.mu_Phi;
+            float mu_U = paramTrain.mu_U;
+            int nTrain = paramTrain.nTrain;
+            float mu_ReduceFactor = paramTrain.mu_Phi_ReduceFactor;
+            string LearnRateSchedule = paramTrain.LearnRateSchedule;
+            int nSamplesPerDisplay = paramTrain.nSamplesPerDisplay;
+            int nEpochPerSave = paramTrain.nEpochPerSave;
+            int nEpochPerTest = paramTrain.nEpochPerTest;
+            int nEpochPerDump = paramTrain.nEpochPerDump;
+            bool flag_ModelInitFromFile = paramTrain.flag_ModelInitFromFile;
+            int BPsteps = paramTrain.BPsteps;
+            float BPthresh = paramTrain.BPthresh;
+
+
+            // ---- Initialize the model ----
+            if (paramTrain.nSeed == 0)
+            {
+                if (flag_ModelInitFromFile)
+                {
+                    throw new Exception("Loading model from file has not been implemented.");
+                }
+                else
+                {
+                    ModelInit_LDA_Feedforward_Untied(paramModel);
+                }
+            }
+            else
+            {
+                ////////////////////////// Up to this point at the moment ///////////////////////////
+                SeedSelectionTrainingSupLDA_UnfoldBP_Untied(TrainData, TrainLabel, paramModel, paramTrain, ModelFile, ResultFile);
+            }
+
+            // ---- Initialize the training algorithm ----
+            float TotLoss = 0.0f;
+            float TotTrErr = 0.0f;
+            double TotTime = 0.0f;
+            double TotTimeThisEpoch = 0.0f;
+            float TotLearnLineSearch = 0.0f;
+            int TotSamples = 0;
+            int TotSamplesThisEpoch = 0;
+            DenseRowVector mu_phi_search = new DenseRowVector(nHid, mu_Phi);
+            DenseRowVector TestError_pool = new DenseRowVector(nEpoch / nEpochPerTest, 0.0f);
+            DenseRowVector TestError_epoch = new DenseRowVector(nEpoch / nEpochPerTest, 0.0f);
+            DenseRowVector TestError_time = new DenseRowVector(nEpoch / nEpochPerTest, 0.0f);
+            int CountTest = 0;
+            float G_U = 0.0f;
+            DenseRowVector G_Phi_pool = new DenseRowVector(nHidLayer);
+            DenseRowVector G_Phi_trunc_pool = new DenseRowVector(nHidLayer, 0.0f);
+            int[] SparsePatternGradPhi = null;
+            float nLearnLineSearch = 0.0f;
+            int[] IdxPerm = null;
+            int BatchSize_NormalBatch = paramTrain.BatchSize;
+            int BatchSize_tmp = paramTrain.BatchSize;
+            int nBatch = (int)Math.Ceiling(((float)nTrain) / ((float)BatchSize_NormalBatch));
+            DNNRun_t DNNRun_NormalBatch = new DNNRun_t(nHid, BatchSize_NormalBatch, nHidLayer, nOutput);
+            DNNRun_t DNNRun_EndBatch = new DNNRun_t(nHid, nTrain - (nBatch - 1) * BatchSize_NormalBatch, nHidLayer, nOutput);
+            DNNRun_t DNNRun = null;
+            Grad_t Grad = new Grad_t(nHid, nOutput, nInput, nHidLayer, OutputType);
+            SparseMatrix TmpGrad = new SparseMatrix(nInput, nHid, true);
+            DenseMatrix TmpGradDense = new DenseMatrix(nInput, nHid);
+            Stopwatch stopWatch = new Stopwatch();
+            // ---- Compute the schedule of the learning rate
+            double[] stepsize_pool_Phi = null;
+            double[] stepsize_pool_U = null;
+            switch (LearnRateSchedule)
+            {
+                case "PreCompute":
+                    stepsize_pool_Phi = PrecomputeLearningRateSchedule(nBatch, nEpoch, mu_Phi, mu_Phi / mu_ReduceFactor, 1e-8f);
+                    stepsize_pool_U = PrecomputeLearningRateSchedule(nBatch, nEpoch, mu_U, mu_U / mu_ReduceFactor, 1e-8f);
+                    break;
+                case "Constant":
+                    stepsize_pool_Phi = new double[nEpoch];
+                    stepsize_pool_U = new double[nEpoch];
+                    for (int Idx = 0; Idx < nEpoch; Idx++)
+                    {
+                        stepsize_pool_Phi[Idx] = mu_Phi;
+                        stepsize_pool_U[Idx] = mu_U;
+                    }
+                    break;
+                default:
+                    throw new Exception("Unknown type of LearnRateSchedule");
+            }
+            // Now start training.........................
+            for (int epoch = 0; epoch < nEpoch; epoch++)
+            {
+                TotSamplesThisEpoch = 0;
+                TotTimeThisEpoch = 0.0;
+                // -- Set the batch size if there is schedule --
+                if (paramTrain.flag_BachSizeSchedule)
+                {
+                    if (paramTrain.BachSizeSchedule.TryGetValue(epoch + 1, out BatchSize_tmp))
+                    {
+                        BatchSize_NormalBatch = BatchSize_tmp;
+                        nBatch = (int)Math.Ceiling(((float)nTrain) / ((float)BatchSize_NormalBatch));
+                        DNNRun_NormalBatch = new DNNRun_t(nHid, BatchSize_NormalBatch, nHidLayer, nOutput);
+                        DNNRun_EndBatch = new DNNRun_t(nHid, nTrain - (nBatch - 1) * BatchSize_NormalBatch, nHidLayer, nOutput);
+                    }
+                }
+
+                // -- Shuffle the data (generating shuffled index) --
+                IdxPerm = Statistics.RandPerm(nTrain);
+                // -- Reset the (MDA) inference step-sizes --
+                if (epoch > 0)
+                {
+                    for (int Idx = 0; Idx < nHidLayer; Idx++)
+                    {
+                        paramModel.T[Idx] = T_value;
+                    }
+                }
+                // -- Take the learning rate for the current epoch --
+                mu_Phi = (float)stepsize_pool_Phi[epoch];
+                mu_U = (float)stepsize_pool_U[epoch];
+                // -- Start this epoch --
+                Console.WriteLine("============== Epoch #{0}. BatchSize: {1} Learning Rate: Phi:{2}, U:{3} ==================",
+                    epoch + 1, BatchSize_NormalBatch, mu_Phi, mu_U);
+                for (int IdxBatch = 0; IdxBatch < nBatch; IdxBatch++)
+                {
+                    stopWatch.Start();
+                    // Extract the batch
+                    int BatchSize = 0;
+                    if (IdxBatch < nBatch - 1)
+                    {
+                        BatchSize = BatchSize_NormalBatch;
+                        DNNRun = DNNRun_NormalBatch;
+                    }
+                    else
+                    {
+                        BatchSize = nTrain - IdxBatch * BatchSize_NormalBatch;
+                        DNNRun = DNNRun_EndBatch;
+                    }
+                    SparseMatrix Xt = new SparseMatrix(nInput, BatchSize);
+                    SparseMatrix Dt = new SparseMatrix(nOutput, BatchSize);
+                    int[] IdxSample = new int[BatchSize];
+                    Array.Copy(IdxPerm, IdxBatch * BatchSize_NormalBatch, IdxSample, 0, BatchSize);
+                    TrainData.GetColumns(Xt, IdxSample);
+                    TrainLabel.GetColumns(Dt, IdxSample);
+                    // Set the sparse pattern of the gradients for Phi (union of the sparse patterns of all samples)
+                    if (Xt.nCols > 1)
+                    {
+                        for (int Idx = 0; Idx < Xt.nCols; Idx++)
+                        {
+                            if (Idx == 0)
+                            {
+                                SparsePatternGradPhi = new int[Xt.SparseColumnVectors[0].nNonzero];
+                                Array.Copy(Xt.SparseColumnVectors[0].Key, SparsePatternGradPhi, Xt.SparseColumnVectors[0].nNonzero);
+                            }
+                            else
+                            {
+                                SparsePatternGradPhi = SparsePatternGradPhi.Union(Xt.SparseColumnVectors[Idx].Key).ToArray<int>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        SparsePatternGradPhi = new int[Xt.SparseColumnVectors[0].nNonzero];
+                        Array.Copy(Xt.SparseColumnVectors[0].Key, SparsePatternGradPhi, Xt.SparseColumnVectors[0].nNonzero);
+                    }
+                    Grad.SetSparsePatternForAllGradPhi(SparsePatternGradPhi);
+                    TmpGrad.SetSparsePatternForAllColumn(SparsePatternGradPhi);
+
+                    // Forward activation
+                    LDA_Learn.ForwardActivation_LDA(Xt, DNNRun, paramModel);
+
+                    // Back propagation
+                    LDA_Learn.BackPropagation_LDA(Xt, Dt, DNNRun, paramModel, Grad);
+
+                    // Compute the gradient and update the model (All gradients of Phi are accumulated into Grad.grad_Q_Phi)
+                    // (i) Update Phi
+                    MatrixOperation.ScalarDivideMatrix(Grad.grad_Q_Phi, (-1.0f) * ((beta - 1) / ((float)nTrain)), paramModel.Phi);                    
+                    G_U = Grad.grad_Q_U.MaxAbsValue();
+                    for (int IdxLayer = nHidLayer - 1; IdxLayer >= Math.Max(nHidLayer - BPsteps, 0); IdxLayer--)
+                    {
+                        Projection.ProjCols2OrthogonalSimplexPlane(TmpGrad, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        G_Phi_pool.VectorValue[IdxLayer] = TmpGrad.MaxAbsValue();
+                        if (IdxLayer == nHidLayer - 1)
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 1.0f;
+                            MatrixOperation.MatrixAddMatrix(Grad.grad_Q_Phi, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        }
+                        else if (G_Phi_pool.VectorValue[IdxLayer] < BPthresh * G_Phi_pool.VectorValue[nHidLayer - 1])
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 1.0f;
+                            MatrixOperation.MatrixAddMatrix(Grad.grad_Q_Phi, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        }
+                        else
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 0.0f;
+                        }
+                    }
+                    mu_phi_search.FillValue(mu_Phi);
+                    nLearnLineSearch = PSGD_Update(paramModel.Phi, Grad.grad_Q_Phi, mu_phi_search, eta);
+                    TotLearnLineSearch += nLearnLineSearch;
+                    // (ii) Update U
+                    MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_U, (-1.0f) * mu_U);
+                    MatrixOperation.MatrixAddMatrix(paramModel.U, Grad.grad_Q_U);
+
+                    // Display the result
+                    TotTrErr += 100 * ComputeNumberOfErrors(Dt, DNNRun.y);
+                    TotLoss += ComputeSupervisedLoss(Dt, DNNRun.y, paramModel.OutputType);
+                    TotSamples += BatchSize;
+                    TotSamplesThisEpoch += BatchSize;
+                    stopWatch.Stop();
+                    TimeSpan ts = stopWatch.Elapsed;
+                    TotTime += ts.TotalSeconds;
+                    TotTimeThisEpoch += ts.TotalSeconds;
+                    stopWatch.Reset();
+                    if (TotSamplesThisEpoch % nSamplesPerDisplay == 0)
+                    {
+                        // Display results
+                        Console.WriteLine(
+                            "- Ep#{0}/{1} Bat#{2}/{3}. Loss={4:F3}. TrErr={5:F3}%. G_U={6:F2}",
+                            epoch + 1, nEpoch,
+                            IdxBatch + 1, nBatch,
+                            TotLoss / TotSamples, TotTrErr / TotSamples,
+                            G_U
+                            );
+                        Console.WriteLine(
+                            "  nLineSearch={0}/Bat Time={1} Sec/Sample",
+                            ((float)TotLearnLineSearch) / ((float)(epoch * nBatch + IdxBatch + 1)),
+                            TotTimeThisEpoch / TotSamplesThisEpoch
+                            );
+                        Console.WriteLine(
+                            "  mu_phi_search_max={0} \n  mu_phi_search_min={1}\n",
+                            mu_phi_search.VectorValue.Max(), mu_phi_search.VectorValue.Min()
+                            );
+                        Console.WriteLine(
+                            "  G_Phi(Low:Up)={0:F2} G_U={1:F2}",
+                            string.Join(" ", MatrixOperation.ElementwiseVectorMultiplyVector(G_Phi_pool, G_Phi_trunc_pool).VectorValue),
+                            G_U
+                            );
+                        Console.WriteLine("----------------------------------------------------");
+                    }
+                }
+                // -- Test --
+                if ((epoch + 1) % nEpochPerTest == 0)
+                {
+                    TestError_epoch.VectorValue[(epoch + 1) / nEpochPerTest - 1] = epoch + 1;
+                    TestError_time.VectorValue[(epoch + 1) / nEpochPerTest - 1] = (float)TotTime;
+                    TestError_pool.VectorValue[(epoch + 1) / nEpochPerTest - 1]
+                        = Testing_SupLDA_UnfoldBP(TestData, TestLabel, paramModel, paramTrain.BatchSize_Test, ResultFile + ".testscore");
+                    CountTest++;
+                }
+
+                // -- Save --
+                if ((epoch + 1) % nEpochPerSave == 0)
+                {
+                    // Save model
+                    string PhiCol = null;
+                    string UCol = null;
+                    (new FileInfo(ResultFile + ".model.Phi")).Directory.Create();
+                    StreamWriter FileSaveModel_Phi = new StreamWriter(ResultFile + ".model.Phi", false);
+                    for (int IdxCol = 0; IdxCol < paramModel.Phi.nCols; IdxCol++)
+                    {
+                        PhiCol = String.Join("\t", paramModel.Phi.DenseMatrixValue[IdxCol].VectorValue);
+                        FileSaveModel_Phi.WriteLine(PhiCol);
+                    }
+                    FileSaveModel_Phi.Close();
+                    StreamWriter FileSaveModel_U = new StreamWriter(ResultFile + ".model.U", false);
+                    for (int IdxCol = 0; IdxCol < paramModel.U.nCols; IdxCol++)
+                    {
+                        UCol = String.Join("\t", paramModel.U.DenseMatrixValue[IdxCol].VectorValue);
+                        FileSaveModel_U.WriteLine(UCol);
+                    }
+                    FileSaveModel_U.Close();
+                    // Save the final learning curves
+                    StreamWriter FileSavePerf = new StreamWriter(ResultFile + ".perf", false);
+                    FileSavePerf.WriteLine(String.Join("\t", TestError_epoch.VectorValue));
+                    FileSavePerf.WriteLine(String.Join("\t", TestError_time.VectorValue));
+                    FileSavePerf.WriteLine(String.Join("\t", TestError_pool.VectorValue));
+                    FileSavePerf.Close();
+                }
+
+                // -- Dump feature --
+                if (paramTrain.flag_DumpFeature && (epoch + 1) % nEpochPerDump == 0)
+                {
+                    DumpingFeature_UnsupLDA_UnfoldBP(TrainData, paramModel, paramTrain.BatchSize_Test, ResultFile + ".train.fea", "Train");
+                    DumpingFeature_UnsupLDA_UnfoldBP(TestData, paramModel, paramTrain.BatchSize_Test, ResultFile + ".test.fea", "Test");
+                }
+
+
+            }
+
+
+        }
+
+        /*
+         * Seed selection training: supervised learning of the model over a small subset of data with multiple initializations.
+         */
+        public static void SeedSelectionTrainingSupLDA_UnfoldBP(
+            SparseMatrix TrainData,
+            SparseMatrix TrainLabel,
+            paramModel_t paramModel,
+            paramTrain_t paramTrain,
+            string ModelFile,
+            string ResultFile
+            )
+        {
+            // ---- Extract the parameters ----
+            // Model parameters
+            int nInput = paramModel.nInput;
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            int nOutput = paramModel.nOutput;
+            float eta = paramModel.eta;
+            float T_value = paramModel.T_value;
+            string OutputType = paramModel.OutputType;
+            float beta = paramModel.beta;
+            // Training parameters
+            int nEpoch = paramTrain.nEpoch;
+            float mu_Phi = paramTrain.mu_Phi;
+            float mu_U = paramTrain.mu_U;
+            int nTrain = Math.Min(paramTrain.nTrain,paramTrain.nSamplesSeedSelection);
+            float mu_ReduceFactor = paramTrain.mu_Phi_ReduceFactor;
+            string LearnRateSchedule = paramTrain.LearnRateSchedule;
+            int nSamplesPerDisplay = paramTrain.nSamplesPerDisplay;
+            int nEpochPerSave = paramTrain.nEpochPerSave;
+            int nEpochPerTest = paramTrain.nEpochPerTest;
+            int nEpochPerDump = paramTrain.nEpochPerDump;
+            int BPsteps = paramTrain.BPsteps;
+            float BPthresh = paramTrain.BPthresh;
+            int nSeed = paramTrain.nSeed;
+            int nSamplesSeedSelection = paramTrain.nSamplesSeedSelection;
+
+            // ---- Set the performance metric ----
+            float[] TrainingErrorAllSeeds = new float[nSeed];
+            
+            // ---- Training ----            
+            for (int IdxSeed = 0; IdxSeed < nSeed; ++IdxSeed)
+            {
+                // ---- Initialize the model ----
+                ModelInit_LDA_Feedforward(paramModel);
+                // ---- Initialize the training algorithm ----
+                float TotLoss = 0.0f;
+                float TotTrErr = 0.0f;
+                double TotTime = 0.0f;
+                double TotTimeThisEpoch = 0.0f;
+                float TotLearnLineSearch = 0.0f;
+                int TotSamples = 0;
+                int TotSamplesThisEpoch = 0;
+                DenseRowVector mu_phi_search = new DenseRowVector(nHid, mu_Phi);
+                float G_U = 0.0f;
+                DenseRowVector G_Phi_pool = new DenseRowVector(nHidLayer);
+                DenseRowVector G_Phi_trunc_pool = new DenseRowVector(nHidLayer, 0.0f);
+                int[] SparsePatternGradPhi = null;
+                float nLearnLineSearch = 0.0f;
+                int[] IdxPerm = null;
+                int BatchSize_NormalBatch = paramTrain.BatchSize;
+                int BatchSize_tmp = paramTrain.BatchSize;
+                int nBatch = (int)Math.Ceiling(((float)nTrain) / ((float)BatchSize_NormalBatch));
+                DNNRun_t DNNRun_NormalBatch = new DNNRun_t(nHid, BatchSize_NormalBatch, nHidLayer, nOutput);
+                DNNRun_t DNNRun_EndBatch = new DNNRun_t(nHid, nTrain - (nBatch - 1) * BatchSize_NormalBatch, nHidLayer, nOutput);
+                DNNRun_t DNNRun = null;
+                Grad_t Grad = new Grad_t(nHid, nOutput, nInput, nHidLayer, OutputType);
+                SparseMatrix TmpGrad = new SparseMatrix(nInput, nHid, true);
+                DenseMatrix TmpGradDense = new DenseMatrix(nInput, nHid);
+                Stopwatch stopWatch = new Stopwatch();
+                // ---- Compute the schedule of the learning rate
+                double[] stepsize_pool_Phi = null;
+                double[] stepsize_pool_U = null;
+                switch (LearnRateSchedule)
+                {
+                    case "PreCompute":
+                        stepsize_pool_Phi = PrecomputeLearningRateSchedule(nBatch, nEpoch, mu_Phi, mu_Phi / mu_ReduceFactor, 1e-8f);
+                        stepsize_pool_U = PrecomputeLearningRateSchedule(nBatch, nEpoch, mu_U, mu_U / mu_ReduceFactor, 1e-8f);
+                        break;
+                    case "Constant":
+                        stepsize_pool_Phi = new double[nEpoch];
+                        stepsize_pool_U = new double[nEpoch];
+                        for (int Idx = 0; Idx < nEpoch; Idx++)
+                        {
+                            stepsize_pool_Phi[Idx] = mu_Phi;
+                            stepsize_pool_U[Idx] = mu_U;
+                        }
+                        break;
+                    default:
+                        throw new Exception("Unknown type of LearnRateSchedule");
+                }                
+                // -- Reset the (MDA) inference step-sizes --            
+                for (int Idx = 0; Idx < nHidLayer; Idx++)
+                {
+                    paramModel.T[Idx] = T_value;
+                }
+                // -- Set the batch size if there is schedule --
+                if (paramTrain.flag_BachSizeSchedule)
+                {
+                    if (paramTrain.BachSizeSchedule.TryGetValue(1, out BatchSize_tmp))
+                    {
+                        BatchSize_NormalBatch = BatchSize_tmp;
+                        nBatch = (int)Math.Ceiling(((float)nTrain) / ((float)BatchSize_NormalBatch));
+                        DNNRun_NormalBatch = new DNNRun_t(nHid, BatchSize_NormalBatch, nHidLayer, nOutput);
+                        DNNRun_EndBatch = new DNNRun_t(nHid, nTrain - (nBatch - 1) * BatchSize_NormalBatch, nHidLayer, nOutput);
+                    }
+                }                
+                // -- Shuffle the data (generating shuffled index) --
+                IdxPerm = Statistics.RandPerm(nTrain);                
+                // -- Take the learning rate for the current epoch --
+                mu_Phi = (float)stepsize_pool_Phi[0];
+                mu_U = (float)stepsize_pool_U[0];
+                // Now start training.........................
+                if (IdxSeed == 0)
+                {
+                    Console.WriteLine("============== Epoch #{0}. BatchSize: {1} Learning Rate: Phi:{2}, U:{3} ==================",
+                    0, BatchSize_NormalBatch, mu_Phi, mu_U);
+                }
+                // -- Start this epoch --
+                for (int IdxBatch = 0; IdxBatch < nBatch; IdxBatch++)
+                {
+                    stopWatch.Start();
+                    // Extract the batch
+                    int BatchSize = 0;
+                    if (IdxBatch < nBatch - 1)
+                    {
+                        BatchSize = BatchSize_NormalBatch;
+                        DNNRun = DNNRun_NormalBatch;
+                    }
+                    else
+                    {
+                        BatchSize = nTrain - IdxBatch * BatchSize_NormalBatch;
+                        DNNRun = DNNRun_EndBatch;
+                    }
+                    SparseMatrix Xt = new SparseMatrix(nInput, BatchSize);
+                    SparseMatrix Dt = new SparseMatrix(nOutput, BatchSize);
+                    int[] IdxSample = new int[BatchSize];
+                    Array.Copy(IdxPerm, IdxBatch * BatchSize_NormalBatch, IdxSample, 0, BatchSize);
+                    TrainData.GetColumns(Xt, IdxSample);
+                    TrainLabel.GetColumns(Dt, IdxSample);
+                    // Set the sparse pattern of the gradients for Phi (union of the sparse patterns of all samples)
+                    if (Xt.nCols > 1)
+                    {
+                        for (int Idx = 0; Idx < Xt.nCols; Idx++)
+                        {
+                            if (Idx == 0)
+                            {
+                                SparsePatternGradPhi = new int[Xt.SparseColumnVectors[0].nNonzero];
+                                Array.Copy(Xt.SparseColumnVectors[0].Key, SparsePatternGradPhi, Xt.SparseColumnVectors[0].nNonzero);
+                            }
+                            else
+                            {
+                                SparsePatternGradPhi = SparsePatternGradPhi.Union(Xt.SparseColumnVectors[Idx].Key).ToArray<int>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        SparsePatternGradPhi = new int[Xt.SparseColumnVectors[0].nNonzero];
+                        Array.Copy(Xt.SparseColumnVectors[0].Key, SparsePatternGradPhi, Xt.SparseColumnVectors[0].nNonzero);
+                    }
+                    Grad.SetSparsePatternForAllGradPhi(SparsePatternGradPhi);
+                    TmpGrad.SetSparsePatternForAllColumn(SparsePatternGradPhi);
+
+                    // Forward activation
+                    LDA_Learn.ForwardActivation_LDA(Xt, DNNRun, paramModel);
+
+                    // Back propagation
+                    LDA_Learn.BackPropagation_LDA(Xt, Dt, DNNRun, paramModel, Grad);
+
+                    // Compute the gradient and update the model (All gradients of Phi are accumulated into Grad.grad_Q_Phi)
+                    // (i) Update Phi
+                    MatrixOperation.ScalarDivideMatrix(Grad.grad_Q_Phi, (-1.0f) * ((beta - 1) / ((float)nTrain)), paramModel.Phi);                    
+                    G_U = Grad.grad_Q_U.MaxAbsValue();
+                    for (int IdxLayer = nHidLayer - 1; IdxLayer >= Math.Max(nHidLayer - BPsteps, 0); IdxLayer--)
+                    {
+                        Projection.ProjCols2OrthogonalSimplexPlane(TmpGrad, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        G_Phi_pool.VectorValue[IdxLayer] = TmpGrad.MaxAbsValue();
+                        if (IdxLayer == nHidLayer - 1)
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 1.0f;
+                            MatrixOperation.MatrixAddMatrix(Grad.grad_Q_Phi, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        }
+                        else if (G_Phi_pool.VectorValue[IdxLayer] < BPthresh * G_Phi_pool.VectorValue[nHidLayer - 1])
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 1.0f;
+                            MatrixOperation.MatrixAddMatrix(Grad.grad_Q_Phi, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        }
+                        else
+                        {
+                            G_Phi_trunc_pool.VectorValue[IdxLayer] = 0.0f;
+                        }
+                    }
+                    mu_phi_search.FillValue(mu_Phi);
+                    nLearnLineSearch = PSGD_Update(paramModel.Phi, Grad.grad_Q_Phi, mu_phi_search, eta);
+                    TotLearnLineSearch += nLearnLineSearch;
+                    // (ii) Update U
+                    MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_U, (-1.0f) * mu_U);
+                    MatrixOperation.MatrixAddMatrix(paramModel.U, Grad.grad_Q_U);
+
+                    // Display the result
+                    TotTrErr += 100 * ComputeNumberOfErrors(Dt, DNNRun.y);
+                    TotLoss += ComputeSupervisedLoss(Dt, DNNRun.y, paramModel.OutputType);
+                    TotSamples += BatchSize;
+                    TotSamplesThisEpoch += BatchSize;
+                    stopWatch.Stop();
+                    TimeSpan ts = stopWatch.Elapsed;
+                    TotTime += ts.TotalSeconds;
+                    TotTimeThisEpoch += ts.TotalSeconds;
+                    stopWatch.Reset();
+                    if (TotSamplesThisEpoch % nSamplesPerDisplay == 0)
+                    {
+                        // Display results
+                        Console.WriteLine(
+                            "- Sd#{0}/{1} Bat#{2}/{3}. Loss={4:F3}. TrErr={5:F3}%. G_U={6:F2}",
+                            IdxSeed, nSeed-1,
+                            IdxBatch + 1, nBatch,
+                            TotLoss / TotSamples, TotTrErr / TotSamples,
+                            G_U
+                            );
+                        Console.WriteLine(
+                            "  nLineSearch={0}/Bat Time={1} Sec/Sample",
+                            ((float)TotLearnLineSearch) / ((float)(IdxBatch + 1)),
+                            TotTimeThisEpoch / TotSamplesThisEpoch
+                            );
+                        Console.WriteLine(
+                            "  mu_phi_search_max={0} \n  mu_phi_search_min={1}\n",
+                            mu_phi_search.VectorValue.Max(), mu_phi_search.VectorValue.Min()
+                            );
+                        Console.WriteLine(
+                            "  G_Phi(Low:Up)={0:F2} G_U={1:F2}",
+                            string.Join(" ", MatrixOperation.ElementwiseVectorMultiplyVector(G_Phi_pool, G_Phi_trunc_pool).VectorValue),
+                            G_U
+                            );
+                        Console.WriteLine("----------------------------------------------------");
+                    }
+                }
+
+                TrainingErrorAllSeeds[IdxSeed] = TotLoss / TotSamples;
+
+                
+
+                // -- Save the models --
+                string PhiCol = null;
+                string UCol = null;
+                (new FileInfo(ResultFile + ".model.Phi.seed" + IdxSeed.ToString())).Directory.Create();
+                StreamWriter FileSaveModel_Phi = new StreamWriter(ResultFile + ".model.Phi.seed" + IdxSeed.ToString(), false);
+                for (int IdxCol = 0; IdxCol < paramModel.Phi.nCols; IdxCol++)
+                {
+                    PhiCol = String.Join("\t", paramModel.Phi.DenseMatrixValue[IdxCol].VectorValue);
+                    FileSaveModel_Phi.WriteLine(PhiCol);
+                }
+                FileSaveModel_Phi.Close();
+                StreamWriter FileSaveModel_U = new StreamWriter(ResultFile + ".model.U.seed" + IdxSeed.ToString(), false);
+                for (int IdxCol = 0; IdxCol < paramModel.U.nCols; IdxCol++)
+                {
+                    UCol = String.Join("\t", paramModel.U.DenseMatrixValue[IdxCol].VectorValue);
+                    FileSaveModel_U.WriteLine(UCol);
+                }
+                FileSaveModel_U.Close();
+                
+            }
+
+            // ---- Load the best model as the initialization ----
+            int IdxBestSeed = TrainingErrorAllSeeds.ToList<float>().IndexOf(TrainingErrorAllSeeds.Min());
+            paramModel.Phi = DataLoader.DenseMatrixTransposeLoader(ResultFile + ".model.Phi.seed" + IdxBestSeed.ToString());
+            paramModel.U = DataLoader.DenseMatrixTransposeLoader(ResultFile + ".model.U.seed" + IdxBestSeed.ToString());
+            for (int IdxSeed = 0; IdxSeed < nSeed; ++IdxSeed )
+            {
+                File.Delete(ResultFile + ".model.Phi.seed" + IdxSeed.ToString());
+                File.Delete(ResultFile + ".model.U.seed" + IdxSeed.ToString());
+            }
+            // -- Reset the (MDA) inference step-sizes --            
+            for (int Idx = 0; Idx < nHidLayer; Idx++)
+            {
+                paramModel.T[Idx] = T_value;
+            }
+        }
+
+        /*
+         * Seed selection training: supervised learning of the model over a small subset of data with multiple initializations. (Untied case)
+         */
+        public static void SeedSelectionTrainingSupLDA_UnfoldBP_Untied(
+            SparseMatrix TrainData,
+            SparseMatrix TrainLabel,
+            paramModel_t paramModel,
+            paramTrain_t paramTrain,
+            string ModelFile,
+            string ResultFile
+            )
+        {
+            // ---- Extract the parameters ----
+            // Model parameters
+            int nInput = paramModel.nInput;
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            int nOutput = paramModel.nOutput;
+            float eta = paramModel.eta;
+            float T_value = paramModel.T_value;
+            string OutputType = paramModel.OutputType;
+            float beta = paramModel.beta;
+            // Training parameters
+            int nEpoch = paramTrain.nEpoch;
+            float mu_Phi = paramTrain.mu_Phi;
+            float mu_U = paramTrain.mu_U;
+            int nTrain = Math.Min(paramTrain.nTrain, paramTrain.nSamplesSeedSelection);
+            float mu_ReduceFactor = paramTrain.mu_Phi_ReduceFactor;
+            string LearnRateSchedule = paramTrain.LearnRateSchedule;
+            int nSamplesPerDisplay = paramTrain.nSamplesPerDisplay;
+            int nEpochPerSave = paramTrain.nEpochPerSave;
+            int nEpochPerTest = paramTrain.nEpochPerTest;
+            int nEpochPerDump = paramTrain.nEpochPerDump;
+            int BPsteps = paramTrain.BPsteps;
+            float BPthresh = paramTrain.BPthresh;
+            int nSeed = paramTrain.nSeed;
+            int nSamplesSeedSelection = paramTrain.nSamplesSeedSelection;
+
+            // ---- Set the performance metric ----
+            float[] TrainingErrorAllSeeds = new float[nSeed];
+
+            // ---- Training ----            
+            for (int IdxSeed = 0; IdxSeed < nSeed; ++IdxSeed)
+            {
+                // ---- Initialize the model ----
+                ModelInit_LDA_Feedforward_Untied(paramModel);
+                // ---- Initialize the training algorithm ----
+                float TotLoss = 0.0f;
+                float TotTrErr = 0.0f;
+                double TotTime = 0.0f;
+                double TotTimeThisEpoch = 0.0f;
+                float TotLearnLineSearch = 0.0f;
+                int TotSamples = 0;
+                int TotSamplesThisEpoch = 0;
+                DenseRowVector mu_phi_search = new DenseRowVector(nHid, mu_Phi);
+                float G_U = 0.0f;
+                DenseRowVector G_Phi_pool = new DenseRowVector(nHidLayer);
+                int[] SparsePatternGradPhi = null;
+                float nLearnLineSearch = 0.0f;
+                int[] IdxPerm = null;
+                int BatchSize_NormalBatch = paramTrain.BatchSize;
+                int BatchSize_tmp = paramTrain.BatchSize;
+                int nBatch = (int)Math.Ceiling(((float)nTrain) / ((float)BatchSize_NormalBatch));
+                DNNRun_t DNNRun_NormalBatch = new DNNRun_t(nHid, BatchSize_NormalBatch, nHidLayer, nOutput);
+                DNNRun_t DNNRun_EndBatch = new DNNRun_t(nHid, nTrain - (nBatch - 1) * BatchSize_NormalBatch, nHidLayer, nOutput);
+                DNNRun_t DNNRun = null;
+                Grad_t Grad = new Grad_t(nHid, nOutput, nInput, nHidLayer, OutputType);
+                SparseMatrix TmpGrad = new SparseMatrix(nInput, nHid, true);
+                DenseMatrix TmpGradDense = new DenseMatrix(nInput, nHid);
+                Stopwatch stopWatch = new Stopwatch();
+                // ---- Compute the schedule of the learning rate
+                double[] stepsize_pool_Phi = null;
+                double[] stepsize_pool_U = null;
+                switch (LearnRateSchedule)
+                {
+                    case "PreCompute":
+                        stepsize_pool_Phi = PrecomputeLearningRateSchedule(nBatch, nEpoch, mu_Phi, mu_Phi / mu_ReduceFactor, 1e-8f);
+                        stepsize_pool_U = PrecomputeLearningRateSchedule(nBatch, nEpoch, mu_U, mu_U / mu_ReduceFactor, 1e-8f);
+                        break;
+                    case "Constant":
+                        stepsize_pool_Phi = new double[nEpoch];
+                        stepsize_pool_U = new double[nEpoch];
+                        for (int Idx = 0; Idx < nEpoch; Idx++)
+                        {
+                            stepsize_pool_Phi[Idx] = mu_Phi;
+                            stepsize_pool_U[Idx] = mu_U;
+                        }
+                        break;
+                    default:
+                        throw new Exception("Unknown type of LearnRateSchedule");
+                }
+                // -- Reset the (MDA) inference step-sizes --            
+                for (int Idx = 0; Idx < nHidLayer; Idx++)
+                {
+                    paramModel.T[Idx] = T_value;
+                }
+                // -- Set the batch size if there is schedule --
+                if (paramTrain.flag_BachSizeSchedule)
+                {
+                    if (paramTrain.BachSizeSchedule.TryGetValue(1, out BatchSize_tmp))
+                    {
+                        BatchSize_NormalBatch = BatchSize_tmp;
+                        nBatch = (int)Math.Ceiling(((float)nTrain) / ((float)BatchSize_NormalBatch));
+                        DNNRun_NormalBatch = new DNNRun_t(nHid, BatchSize_NormalBatch, nHidLayer, nOutput);
+                        DNNRun_EndBatch = new DNNRun_t(nHid, nTrain - (nBatch - 1) * BatchSize_NormalBatch, nHidLayer, nOutput);
+                    }
+                }
+                // -- Shuffle the data (generating shuffled index) --
+                IdxPerm = Statistics.RandPerm(nTrain);
+                // -- Take the learning rate for the current epoch --
+                mu_Phi = (float)stepsize_pool_Phi[0];
+                mu_U = (float)stepsize_pool_U[0];
+                // Now start training.........................
+                if (IdxSeed == 0)
+                {
+                    Console.WriteLine("============== Epoch #{0}. BatchSize: {1} Learning Rate: Phi:{2}, U:{3} ==================",
+                    0, BatchSize_NormalBatch, mu_Phi, mu_U);
+                }
+                // -- Start this epoch --
+                for (int IdxBatch = 0; IdxBatch < nBatch; IdxBatch++)
+                {
+                    stopWatch.Start();
+                    // Extract the batch
+                    int BatchSize = 0;
+                    if (IdxBatch < nBatch - 1)
+                    {
+                        BatchSize = BatchSize_NormalBatch;
+                        DNNRun = DNNRun_NormalBatch;
+                    }
+                    else
+                    {
+                        BatchSize = nTrain - IdxBatch * BatchSize_NormalBatch;
+                        DNNRun = DNNRun_EndBatch;
+                    }
+                    SparseMatrix Xt = new SparseMatrix(nInput, BatchSize);
+                    SparseMatrix Dt = new SparseMatrix(nOutput, BatchSize);
+                    int[] IdxSample = new int[BatchSize];
+                    Array.Copy(IdxPerm, IdxBatch * BatchSize_NormalBatch, IdxSample, 0, BatchSize);
+                    TrainData.GetColumns(Xt, IdxSample);
+                    TrainLabel.GetColumns(Dt, IdxSample);
+                    // Set the sparse pattern of the gradients for Phi (union of the sparse patterns of all samples)
+                    if (Xt.nCols > 1)
+                    {
+                        for (int Idx = 0; Idx < Xt.nCols; Idx++)
+                        {
+                            if (Idx == 0)
+                            {
+                                SparsePatternGradPhi = new int[Xt.SparseColumnVectors[0].nNonzero];
+                                Array.Copy(Xt.SparseColumnVectors[0].Key, SparsePatternGradPhi, Xt.SparseColumnVectors[0].nNonzero);
+                            }
+                            else
+                            {
+                                SparsePatternGradPhi = SparsePatternGradPhi.Union(Xt.SparseColumnVectors[Idx].Key).ToArray<int>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        SparsePatternGradPhi = new int[Xt.SparseColumnVectors[0].nNonzero];
+                        Array.Copy(Xt.SparseColumnVectors[0].Key, SparsePatternGradPhi, Xt.SparseColumnVectors[0].nNonzero);
+                    }
+                    Grad.SetSparsePatternForAllGradPhi(SparsePatternGradPhi);
+                    TmpGrad.SetSparsePatternForAllColumn(SparsePatternGradPhi);
+
+                    // Forward activation
+                    LDA_Learn.ForwardActivation_LDA_Untied(Xt, DNNRun, paramModel);
+
+                    
+
+                    // Back propagation
+                    LDA_Learn.BackPropagation_LDA_Untied(Xt, Dt, DNNRun, paramModel, Grad);
+
+                    
+                    // Compute the gradient and update the model 
+                    // Grad.grad_Q_Phi: store the gradient of the smoothing part: (beta-1)/Phi
+                    // (i) Update Phi
+                    MatrixOperation.ScalarDivideMatrix(Grad.grad_Q_Phi, (-1.0f) * ((beta - 1) / ((float)nTrain)), paramModel.Phi);
+                    G_U = Grad.grad_Q_U.MaxAbsValue();
+                    for (int IdxLayer = nHidLayer - 1; IdxLayer >= Math.Max(nHidLayer - BPsteps, 0); IdxLayer--)
+                    {
+                        Projection.ProjCols2OrthogonalSimplexPlane(TmpGrad, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        G_Phi_pool.VectorValue[IdxLayer] = TmpGrad.MaxAbsValue();
+                        MatrixOperation.MatrixAddMatrix(TmpGradDense, Grad.grad_Q_Phi, Grad.grad_Q_Phi_pool[IdxLayer]);
+                        mu_phi_search.FillValue(mu_Phi);
+                        nLearnLineSearch = PSGD_Update(paramModel.Phi_pool[IdxLayer], TmpGradDense, mu_phi_search, eta);
+                        TotLearnLineSearch += nLearnLineSearch;
+                    }                    
+                    // (ii) Update U
+                    MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_U, (-1.0f) * mu_U);
+                    MatrixOperation.MatrixAddMatrix(paramModel.U, Grad.grad_Q_U);
+
+                    // Display the result
+                    TotTrErr += 100 * ComputeNumberOfErrors(Dt, DNNRun.y);
+                    TotLoss += ComputeSupervisedLoss(Dt, DNNRun.y, paramModel.OutputType);
+                    TotSamples += BatchSize;
+                    TotSamplesThisEpoch += BatchSize;
+                    stopWatch.Stop();
+                    TimeSpan ts = stopWatch.Elapsed;
+                    TotTime += ts.TotalSeconds;
+                    TotTimeThisEpoch += ts.TotalSeconds;
+                    stopWatch.Reset();
+                    if (TotSamplesThisEpoch % nSamplesPerDisplay == 0)
+                    {
+                        // Display results
+                        Console.WriteLine(
+                            "- Sd#{0}/{1} Bat#{2}/{3}. Loss={4:F3}. TrErr={5:F3}%. G_U={6:F2}",
+                            IdxSeed, nSeed - 1,
+                            IdxBatch + 1, nBatch,
+                            TotLoss / TotSamples, TotTrErr / TotSamples,
+                            G_U
+                            );
+                        Console.WriteLine(
+                            "  nLineSearch={0}/Bat Time={1} Sec/Sample",
+                            ((float)TotLearnLineSearch) / ((float)(IdxBatch + 1)),
+                            TotTimeThisEpoch / TotSamplesThisEpoch
+                            );
+                        Console.WriteLine(
+                            "  mu_phi_search_max={0} \n  mu_phi_search_min={1}\n",
+                            mu_phi_search.VectorValue.Max(), mu_phi_search.VectorValue.Min()
+                            );
+                        Console.WriteLine(
+                            "  G_Phi(Low:Up)={0:F2} G_U={1:F2}",
+                            string.Join(" ", G_Phi_pool.VectorValue),
+                            G_U
+                            );
+                        Console.WriteLine("----------------------------------------------------");
+                    }
+                }
+
+                TrainingErrorAllSeeds[IdxSeed] = TotLoss / TotSamples;
+
+
+
+                // -- Save the models --
+                string PhiCol = null;
+                string UCol = null;
+                for (int IdxLayer = 0; IdxLayer < nHidLayer; ++IdxLayer)
+                {
+                    /////////////////////////// Up to here ////////////////////////////////////////
+                    (new FileInfo(ResultFile + ".model.Phi.seed" + IdxSeed.ToString())).Directory.Create();
+                    StreamWriter FileSaveModel_Phi = new StreamWriter(ResultFile + ".model.Phi.seed" + IdxSeed.ToString(), false);
+                    for (int IdxCol = 0; IdxCol < paramModel.Phi.nCols; IdxCol++)
+                    {
+                        PhiCol = String.Join("\t", paramModel.Phi.DenseMatrixValue[IdxCol].VectorValue);
+                        FileSaveModel_Phi.WriteLine(PhiCol);
+                    }
+                    FileSaveModel_Phi.Close();
+                }
+                StreamWriter FileSaveModel_U = new StreamWriter(ResultFile + ".model.U.seed" + IdxSeed.ToString(), false);
+                for (int IdxCol = 0; IdxCol < paramModel.U.nCols; IdxCol++)
+                {
+                    UCol = String.Join("\t", paramModel.U.DenseMatrixValue[IdxCol].VectorValue);
+                    FileSaveModel_U.WriteLine(UCol);
+                }
+                FileSaveModel_U.Close();
+
+            }
+
+            // ---- Load the best model as the initialization ----
+            int IdxBestSeed = TrainingErrorAllSeeds.ToList<float>().IndexOf(TrainingErrorAllSeeds.Min());
+            paramModel.Phi = DataLoader.DenseMatrixTransposeLoader(ResultFile + ".model.Phi.seed" + IdxBestSeed.ToString());
+            paramModel.U = DataLoader.DenseMatrixTransposeLoader(ResultFile + ".model.U.seed" + IdxBestSeed.ToString());
+            for (int IdxSeed = 0; IdxSeed < nSeed; ++IdxSeed)
+            {
+                File.Delete(ResultFile + ".model.Phi.seed" + IdxSeed.ToString());
+                File.Delete(ResultFile + ".model.U.seed" + IdxSeed.ToString());
+            }
+            // -- Reset the (MDA) inference step-sizes --            
+            for (int Idx = 0; Idx < nHidLayer; Idx++)
+            {
+                paramModel.T[Idx] = T_value;
+            }
+        }
+
+        /*
+         * Compute the training loss of the supervised learning at the current batch
+         */
+        public static float ComputeSupervisedLoss(SparseMatrix Dt, DenseMatrix y, string OutputType)
+        {
+            if (Dt.nCols != y.nCols || Dt.nRows != y.nRows)
+            {
+                throw new Exception("The numbers of samples from label and prediction do not match.");
+            }
+            DenseMatrix TmpDenseMat = new DenseMatrix(y);
+            SparseMatrix TmpSparseMat = new SparseMatrix(Dt);
+            DenseRowVector TmpDenseRowVec = new DenseRowVector(Dt.nCols);
+            float TrainingLoss = 0.0f;
+            switch (OutputType)
+            {
+                case "softmaxCE":
+                    MatrixOperation.ScalarAddMatrix(TmpDenseMat, y, 1e-20f);
+                    MatrixOperation.Log(TmpDenseMat);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpSparseMat, Dt, TmpDenseMat);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpSparseMat);
+                    TrainingLoss = TmpDenseRowVec.Sum() * (-1.0f);
+                    break;
+                case "linearQuad":
+                    MatrixOperation.MatrixSubtractMatrix(TmpDenseMat, Dt);
+                    MatrixOperation.ElementwiseSquare(TmpDenseMat);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpDenseMat);
+                    TrainingLoss = TmpDenseRowVec.Sum();
+                    break;
+                default:
+                    throw new Exception("Unknown OutputType.");
+            }
+
+            return TrainingLoss;
+        }
+
+        /*
+         * Compute the training error at the given batch
+         */
+        public static int ComputeNumberOfErrors(SparseMatrix Dt, DenseMatrix y)
+        {
+            if (Dt.nCols != y.nCols)
+            {
+                throw new Exception("The numbers of samples from label and prediction do not match.");
+            }
+            int nTotError = 0;
+            int[] PredictedClass = y.IndexOfVerticalMax();
+            for (int IdxCol = 0; IdxCol < Dt.nCols; IdxCol++)
+            {
+                if (Dt.SparseColumnVectors[IdxCol].Key[0] != PredictedClass[IdxCol])
+                {
+                    nTotError++;
+                }
+            }
+            return nTotError;
+        }
+
+
+        /*
+         *  Initialize the Feedforward-LDA network (model). For the moment, we only implement the tied parameter case.
+         */
+        public static void ModelInit_LDA_Feedforward(paramModel_t paramModel)
+        {
+            // Extract the parameters
+            int nInput = paramModel.nInput;
+            int nOutput = paramModel.nOutput;
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            bool flag_TiedParam = paramModel.flag_TiedParam;
+            float alpha = paramModel.alpha;
+            string OutputType = paramModel.OutputType;
+
+            // Initialzie the model
+            paramModel.b = new DenseColumnVector(nHid, alpha - 1);
+            paramModel.Phi = new DenseMatrix(nInput, nHid);
+            paramModel.Phi.FillRandomValues();
+            //MatrixOperation.ScalarMultiplyMatrix(paramModel.Phi, 0.01f * 1.0f / ((float)nInput)); // Modified init
+            //MatrixOperation.ScalarAddMatrix(paramModel.Phi, 1.0f/((float)nInput)); // Modified init
+            MatrixOperation.ScalarAddMatrix(paramModel.Phi, 1.0f);
+            MatrixOperation.bsxfunMatrixRightDivideVector(paramModel.Phi, MatrixOperation.VerticalSumMatrix(paramModel.Phi));
+            paramModel.U = new DenseMatrix(nOutput, nHid);
+            paramModel.U.FillRandomValues();
+            MatrixOperation.ScalarMultiplyMatrix(paramModel.U, 0.01f);
+        }
+        public static void ModelInit_LDA_Feedforward(paramModel_t paramModel,string ModelFile_Phi)
+        {
+            // Extract the parameters
+            int nInput = paramModel.nInput;
+            int nOutput = paramModel.nOutput;
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            bool flag_TiedParam = paramModel.flag_TiedParam;
+            float alpha = paramModel.alpha;
+            string OutputType = paramModel.OutputType;
+
+            // Initialzie the model (random part)
+            paramModel.b = new DenseColumnVector(nHid, alpha - 1);
+            paramModel.U = new DenseMatrix(nOutput, nHid);
+            paramModel.U.FillRandomValues();
+            MatrixOperation.ScalarMultiplyMatrix(paramModel.U, 0.01f);
+
+            // Initialize the model (load from file)
+            Console.WriteLine("Loading model from file...");
+            paramModel.Phi = new DenseMatrix(nInput, nHid);
+            StreamReader ModelPhi = new StreamReader(ModelFile_Phi);
+            int nLine = 0;
+            string StrLine = null;
+            while ((StrLine = ModelPhi.ReadLine()) != null)
+            {
+                if (nLine > nHid-1)
+                {
+                    throw new Exception("nHid mismatch between the model file and the actual model.");
+                }
+                string[] StrLineSplit = StrLine.Split('\t');
+                if (StrLineSplit.Length == nInput)
+                {
+                    for (int Idx = 0; Idx<nInput; ++Idx)
+                    {
+                        paramModel.Phi.DenseMatrixValue[nLine].VectorValue[Idx] = float.Parse(StrLineSplit[Idx]);
+                    }
+                }
+                else
+                {
+                    throw new Exception("nInput mismatch between the model file and the actual model.");
+                }
+
+                ++nLine;
+            }
+
+            ModelPhi.Close();
+            
+            
+        }
+
+        /*
+         *  Initialize the Feedforward-LDA network (model) with untied parameters.
+         */
+        public static void ModelInit_LDA_Feedforward_Untied(paramModel_t paramModel)
+        {
+            // Extract the parameters
+            int nInput = paramModel.nInput;
+            int nOutput = paramModel.nOutput;
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            bool flag_TiedParam = paramModel.flag_TiedParam;
+            float alpha = paramModel.alpha;
+            string OutputType = paramModel.OutputType;
+            if (!flag_TiedParam)
+            {
+                throw new Exception("Calling the wrong model initialization function. This is for untied case.");
+            }
+
+            // Initialzie the model
+            paramModel.b_pool = new DenseColumnVector[nHidLayer];
+            for (int IdxLayer = 0; IdxLayer < nHidLayer; ++IdxLayer )
+            {
+                paramModel.b_pool[IdxLayer] = new DenseColumnVector(nHid, alpha - 1);
+            }
+            paramModel.Phi_pool = new DenseMatrix[nHidLayer];
+            for (int IdxLayer = 0; IdxLayer < nHidLayer; ++IdxLayer )
+            {
+                paramModel.Phi_pool[IdxLayer] = new DenseMatrix(nInput, nHid);
+                paramModel.Phi_pool[IdxLayer].FillRandomValues();
+                //MatrixOperation.ScalarMultiplyMatrix(paramModel.Phi_pool[IdxLayer], 0.01f * 1.0f / ((float)nInput)); // Modified init
+                //MatrixOperation.ScalarAddMatrix(paramModel.Phi_pool[IdxLayer], 1.0f/((float)nInput)); // Modified init
+                MatrixOperation.ScalarAddMatrix(paramModel.Phi_pool[IdxLayer], 1.0f);
+                MatrixOperation.bsxfunMatrixRightDivideVector(paramModel.Phi_pool[IdxLayer], MatrixOperation.VerticalSumMatrix(paramModel.Phi_pool[IdxLayer]));
+            }            
+            paramModel.U = new DenseMatrix(nOutput, nHid);
+            paramModel.U.FillRandomValues();
+            MatrixOperation.ScalarMultiplyMatrix(paramModel.U, 0.01f);
+        }
+
+
+        /*
+         * Forward activation of Latent Dirichlet Allocation model (Mirror descent approach)
+         */
+        public static void ForwardActivation_LDA(SparseMatrix Xt, DNNRun_t DNNRun, paramModel_t paramModel)
+        {
+            // -------- Extract parameters --------
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            float epsilon1 = paramModel.epsilon1;
+            float epsilon2 = paramModel.epsilon2;
+            float eta = paramModel.eta;
+            float T_value = paramModel.T_value;
+            string OutputType = paramModel.OutputType;
+            float To = paramModel.To;
+            bool flag_TiedParam = paramModel.flag_TiedParam;
+            int BatchSize = Xt.nCols;
+
+            // -------- Hidden activations --------
+            // ---- T is different over layers (adaptive step-size MDA) ----
+            DenseRowVector T = new DenseRowVector(BatchSize, T_value);
+            SparseMatrix Phitheta = new SparseMatrix(Xt);
+            DenseRowVector loss_pre = new DenseRowVector(BatchSize);
+            DenseRowVector loss_post = new DenseRowVector(BatchSize);
+            DenseRowVector loss_gap = new DenseRowVector(BatchSize);
+            DenseRowVector loss_gap_thresh = new DenseRowVector(BatchSize);
+            DenseRowVector gradproj = new DenseRowVector(BatchSize);
+            SparseMatrix TmpSparseMat = new SparseMatrix(Xt);
+            DenseMatrix TmpDenseMat = new DenseMatrix(nHid, BatchSize);
+            DenseMatrix LogTheta = new DenseMatrix(nHid, BatchSize);
+            DenseRowVector TmpDenseRowVec = new DenseRowVector(BatchSize);
+            DenseMatrix NegGrad = new DenseMatrix(nHid, BatchSize);
+            for (int IdxLayer = 0; IdxLayer < nHidLayer; IdxLayer++)
+            {
+                // Compute the loss before unfolding the current layer
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.MatrixMultiplyMatrix(Phitheta, paramModel.Phi, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.MatrixMultiplyMatrix(Phitheta, paramModel.Phi, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+                if (IdxLayer > 1 && flag_TiedParam)
+                {
+                    loss_pre.DeepCopyFrom(loss_post);
+                }
+                else
+                {
+                    MatrixOperation.ScalarAddMatrix(TmpSparseMat, Phitheta, epsilon1);
+                    MatrixOperation.Log(TmpSparseMat);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpSparseMat, Xt);
+                    MatrixOperation.VerticalSumMatrix(loss_pre, TmpSparseMat);
+                    MatrixOperation.ScalarMultiplyVector(loss_pre, -1.0f);
+                    if (IdxLayer == 0)
+                    {
+                        MatrixOperation.ScalarAddMatrix(TmpDenseMat, DNNRun.theta0, epsilon2);
+                    }
+                    else
+                    {
+                        MatrixOperation.ScalarAddMatrix(TmpDenseMat, DNNRun.theta_pool[IdxLayer - 1], epsilon2);
+                    }
+                    MatrixOperation.Log(TmpDenseMat);
+                    MatrixOperation.bsxfunVectorMultiplyMatrix(TmpDenseMat, paramModel.b);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpDenseMat);
+                    MatrixOperation.VectorSubtractVector(loss_pre, TmpDenseRowVec);
+                }
+                // Compute the hidden activation of the current layer
+                MatrixOperation.ScalarAddMatrix(TmpSparseMat, Phitheta, epsilon1);
+                MatrixOperation.ElementwiseMatrixDivideMatrix(TmpSparseMat, Xt, TmpSparseMat);
+                MatrixOperation.MatrixTransposeMultiplyMatrix(TmpDenseMat, paramModel.Phi, TmpSparseMat);
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.ScalarAddMatrix(NegGrad, DNNRun.theta0, epsilon2);
+                }
+                else
+                {
+                    MatrixOperation.ScalarAddMatrix(NegGrad, DNNRun.theta_pool[IdxLayer - 1], epsilon2);
+                }
+                MatrixOperation.bsxfunVectorDivideMatrix(NegGrad, paramModel.b);
+                MatrixOperation.MatrixAddMatrix(NegGrad, TmpDenseMat);
+                // Line search for the parameter T
+                MatrixOperation.ScalarMultiplyVector(T, (1.0f / eta));
+                loss_post.DeepCopyFrom(loss_pre);
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.Log(LogTheta, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.Log(LogTheta, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+
+                //for (int IdxSample = 0; IdxSample < BatchSize; IdxSample++)
+                Parallel.For(0, BatchSize, new ParallelOptions { MaxDegreeOfParallelism = MatrixOperation.MaxMultiThreadDegree }, IdxSample =>
+                {
+                    while (true)
+                    {
+                        MatrixOperation.ScalarMultiplyVector(DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                            NegGrad.DenseMatrixValue[IdxSample], T.VectorValue[IdxSample]);
+                        MatrixOperation.VectorAddVector(DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                            LogTheta.DenseMatrixValue[IdxSample]);
+                        MatrixOperation.ScalarAddVector(DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                            (-1.0f) * DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample].MaxValue());
+                        MatrixOperation.Exp(DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample]);
+                        MatrixOperation.ScalarMultiplyVector(DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                            (1.0f / DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample].Sum()));
+                        // Compute the loss after undfolding the current layer
+                        MatrixOperation.MatrixMultiplyVector(Phitheta.SparseColumnVectors[IdxSample],
+                            paramModel.Phi, DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample]);
+                        MatrixOperation.ScalarAddVector(Phitheta.SparseColumnVectors[IdxSample], epsilon1);
+                        MatrixOperation.Log(Phitheta.SparseColumnVectors[IdxSample]);
+                        loss_post.VectorValue[IdxSample]
+                            = (-1.0f) * MatrixOperation.InnerProduct(Xt.SparseColumnVectors[IdxSample], Phitheta.SparseColumnVectors[IdxSample]);
+                        MatrixOperation.ScalarAddVector(TmpDenseMat.DenseMatrixValue[IdxSample], DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample], epsilon2);
+                        MatrixOperation.Log(TmpDenseMat.DenseMatrixValue[IdxSample]);
+                        loss_post.VectorValue[IdxSample] -= MatrixOperation.InnerProduct(TmpDenseMat.DenseMatrixValue[IdxSample], paramModel.b);
+                        if (IdxLayer == 0)
+                        {
+                            MatrixOperation.VectorSubtractVector(TmpDenseMat.DenseMatrixValue[IdxSample],
+                                DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                                DNNRun.theta0.DenseMatrixValue[IdxSample]);
+                        }
+                        else
+                        {
+                            MatrixOperation.VectorSubtractVector(TmpDenseMat.DenseMatrixValue[IdxSample],
+                                DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                                DNNRun.theta_pool[IdxLayer - 1].DenseMatrixValue[IdxSample]);
+                        }
+                        loss_gap.VectorValue[IdxSample] = loss_post.VectorValue[IdxSample] - loss_pre.VectorValue[IdxSample];
+                        gradproj.VectorValue[IdxSample]
+                            = (-1.0f) * MatrixOperation.InnerProduct(NegGrad.DenseMatrixValue[IdxSample],
+                                TmpDenseMat.DenseMatrixValue[IdxSample]);
+                        loss_gap_thresh.VectorValue[IdxSample] = gradproj.VectorValue[IdxSample]
+                            + (0.5f / T.VectorValue[IdxSample]) * (float)Math.Pow((double)TmpDenseMat.DenseMatrixValue[IdxSample].L1Norm(), 2.0);
+                        if (loss_gap.VectorValue[IdxSample] > loss_gap_thresh.VectorValue[IdxSample] + 1e-12)
+                        {
+                            T.VectorValue[IdxSample] *= eta;
+                        }
+                        else
+                        {
+                            DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer].VectorValue[IdxSample] = T.VectorValue[IdxSample];
+                            break;
+                        }
+                    }
+                });
+            }
+            // -------- Output --------
+            switch (OutputType)
+            {
+                case "softmaxCE":
+                    MatrixOperation.MatrixMultiplyMatrix(DNNRun.y, paramModel.U, DNNRun.theta_pool[nHidLayer - 1]);
+                    MatrixOperation.ScalarMultiplyMatrix(DNNRun.y, To);
+                    MatrixOperation.VerticalMaxMatrix(TmpDenseRowVec, DNNRun.y);
+                    MatrixOperation.bsxfunMatrixSubtractVector(DNNRun.y, DNNRun.y, TmpDenseRowVec);
+                    MatrixOperation.Exp(DNNRun.y);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, DNNRun.y);
+                    MatrixOperation.bsxfunMatrixRightDivideVector(DNNRun.y, TmpDenseRowVec);
+                    break;
+                case "unsupLDA":
+                    // Will not compute the reconstructed input at forward activation to save time during training.
+                    break;
+                case "linearQuad":
+                    MatrixOperation.MatrixMultiplyMatrix(DNNRun.y, paramModel.U, DNNRun.theta_pool[nHidLayer - 1]);
+                    break;
+                default:
+                    throw new Exception("Unknown OutputType.");
+            }
+        }
+
+        /*
+         * Forward activation of Latent Dirichlet Allocation model (Mirror descent approach). Untied model parameters across layers
+         */
+        public static void ForwardActivation_LDA_Untied(SparseMatrix Xt, DNNRun_t DNNRun, paramModel_t paramModel)
+        {
+            // -------- Extract parameters --------
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            float epsilon1 = paramModel.epsilon1;
+            float epsilon2 = paramModel.epsilon2;
+            float eta = paramModel.eta;
+            float T_value = paramModel.T_value;
+            string OutputType = paramModel.OutputType;
+            float To = paramModel.To;
+            bool flag_TiedParam = paramModel.flag_TiedParam;
+            int BatchSize = Xt.nCols;
+
+            // -------- Hidden activations --------
+            // ---- T is different over layers (adaptive step-size MDA) ----
+            DenseRowVector T = new DenseRowVector(BatchSize, T_value);
+            SparseMatrix Phitheta = new SparseMatrix(Xt);
+            DenseRowVector loss_pre = new DenseRowVector(BatchSize);
+            DenseRowVector loss_post = new DenseRowVector(BatchSize);
+            DenseRowVector loss_gap = new DenseRowVector(BatchSize);
+            DenseRowVector loss_gap_thresh = new DenseRowVector(BatchSize);
+            DenseRowVector gradproj = new DenseRowVector(BatchSize);
+            SparseMatrix TmpSparseMat = new SparseMatrix(Xt);
+            DenseMatrix TmpDenseMat = new DenseMatrix(nHid, BatchSize);
+            DenseMatrix LogTheta = new DenseMatrix(nHid, BatchSize);
+            DenseRowVector TmpDenseRowVec = new DenseRowVector(BatchSize);
+            DenseMatrix NegGrad = new DenseMatrix(nHid, BatchSize);
+            for (int IdxLayer = 0; IdxLayer < nHidLayer; IdxLayer++)
+            {
+                // Compute the loss before unfolding the current layer
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.MatrixMultiplyMatrix(Phitheta, paramModel.Phi, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.MatrixMultiplyMatrix(Phitheta, paramModel.Phi, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+                if (IdxLayer > 1 && flag_TiedParam)
+                {
+                    loss_pre.DeepCopyFrom(loss_post);
+                }
+                else
+                {
+                    MatrixOperation.ScalarAddMatrix(TmpSparseMat, Phitheta, epsilon1);
+                    MatrixOperation.Log(TmpSparseMat);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpSparseMat, Xt);
+                    MatrixOperation.VerticalSumMatrix(loss_pre, TmpSparseMat);
+                    MatrixOperation.ScalarMultiplyVector(loss_pre, -1.0f);
+                    if (IdxLayer == 0)
+                    {
+                        MatrixOperation.ScalarAddMatrix(TmpDenseMat, DNNRun.theta0, epsilon2);
+                    }
+                    else
+                    {
+                        MatrixOperation.ScalarAddMatrix(TmpDenseMat, DNNRun.theta_pool[IdxLayer - 1], epsilon2);
+                    }
+                    MatrixOperation.Log(TmpDenseMat);
+                    MatrixOperation.bsxfunVectorMultiplyMatrix(TmpDenseMat, paramModel.b);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpDenseMat);
+                    MatrixOperation.VectorSubtractVector(loss_pre, TmpDenseRowVec);
+                }
+                // Compute the hidden activation of the current layer
+                MatrixOperation.ScalarAddMatrix(TmpSparseMat, Phitheta, epsilon1);
+                MatrixOperation.ElementwiseMatrixDivideMatrix(TmpSparseMat, Xt, TmpSparseMat);
+                MatrixOperation.MatrixTransposeMultiplyMatrix(TmpDenseMat, paramModel.Phi, TmpSparseMat);
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.ScalarAddMatrix(NegGrad, DNNRun.theta0, epsilon2);
+                }
+                else
+                {
+                    MatrixOperation.ScalarAddMatrix(NegGrad, DNNRun.theta_pool[IdxLayer - 1], epsilon2);
+                }
+                MatrixOperation.bsxfunVectorDivideMatrix(NegGrad, paramModel.b);
+                MatrixOperation.MatrixAddMatrix(NegGrad, TmpDenseMat);
+                // Line search for the parameter T
+                MatrixOperation.ScalarMultiplyVector(T, (1.0f / eta));
+                loss_post.DeepCopyFrom(loss_pre);
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.Log(LogTheta, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.Log(LogTheta, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+
+                //for (int IdxSample = 0; IdxSample < BatchSize; IdxSample++)
+                Parallel.For(0, BatchSize, new ParallelOptions { MaxDegreeOfParallelism = MatrixOperation.MaxMultiThreadDegree }, IdxSample =>
+                {
+                    while (true)
+                    {
+                        MatrixOperation.ScalarMultiplyVector(DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                            NegGrad.DenseMatrixValue[IdxSample], T.VectorValue[IdxSample]);
+                        MatrixOperation.VectorAddVector(DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                            LogTheta.DenseMatrixValue[IdxSample]);
+                        MatrixOperation.ScalarAddVector(DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                            (-1.0f) * DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample].MaxValue());
+                        MatrixOperation.Exp(DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample]);
+                        MatrixOperation.ScalarMultiplyVector(DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                            (1.0f / DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample].Sum()));
+                        // Compute the loss after undfolding the current layer
+                        MatrixOperation.MatrixMultiplyVector(Phitheta.SparseColumnVectors[IdxSample],
+                            paramModel.Phi, DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample]);
+                        MatrixOperation.ScalarAddVector(Phitheta.SparseColumnVectors[IdxSample], epsilon1);
+                        MatrixOperation.Log(Phitheta.SparseColumnVectors[IdxSample]);
+                        loss_post.VectorValue[IdxSample]
+                            = (-1.0f) * MatrixOperation.InnerProduct(Xt.SparseColumnVectors[IdxSample], Phitheta.SparseColumnVectors[IdxSample]);
+                        MatrixOperation.ScalarAddVector(TmpDenseMat.DenseMatrixValue[IdxSample], DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample], epsilon2);
+                        MatrixOperation.Log(TmpDenseMat.DenseMatrixValue[IdxSample]);
+                        loss_post.VectorValue[IdxSample] -= MatrixOperation.InnerProduct(TmpDenseMat.DenseMatrixValue[IdxSample], paramModel.b);
+                        if (IdxLayer == 0)
+                        {
+                            MatrixOperation.VectorSubtractVector(TmpDenseMat.DenseMatrixValue[IdxSample],
+                                DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                                DNNRun.theta0.DenseMatrixValue[IdxSample]);
+                        }
+                        else
+                        {
+                            MatrixOperation.VectorSubtractVector(TmpDenseMat.DenseMatrixValue[IdxSample],
+                                DNNRun.theta_pool[IdxLayer].DenseMatrixValue[IdxSample],
+                                DNNRun.theta_pool[IdxLayer - 1].DenseMatrixValue[IdxSample]);
+                        }
+                        loss_gap.VectorValue[IdxSample] = loss_post.VectorValue[IdxSample] - loss_pre.VectorValue[IdxSample];
+                        gradproj.VectorValue[IdxSample]
+                            = (-1.0f) * MatrixOperation.InnerProduct(NegGrad.DenseMatrixValue[IdxSample],
+                                TmpDenseMat.DenseMatrixValue[IdxSample]);
+                        loss_gap_thresh.VectorValue[IdxSample] = gradproj.VectorValue[IdxSample]
+                            + (0.5f / T.VectorValue[IdxSample]) * (float)Math.Pow((double)TmpDenseMat.DenseMatrixValue[IdxSample].L1Norm(), 2.0);
+                        if (loss_gap.VectorValue[IdxSample] > loss_gap_thresh.VectorValue[IdxSample] + 1e-12)
+                        {
+                            T.VectorValue[IdxSample] *= eta;
+                        }
+                        else
+                        {
+                            DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer].VectorValue[IdxSample] = T.VectorValue[IdxSample];
+                            break;
+                        }
+                    }
+                });
+            }
+            // -------- Output --------
+            switch (OutputType)
+            {
+                case "softmaxCE":
+                    MatrixOperation.MatrixMultiplyMatrix(DNNRun.y, paramModel.U, DNNRun.theta_pool[nHidLayer - 1]);
+                    MatrixOperation.ScalarMultiplyMatrix(DNNRun.y, To);
+                    MatrixOperation.VerticalMaxMatrix(TmpDenseRowVec, DNNRun.y);
+                    MatrixOperation.bsxfunMatrixSubtractVector(DNNRun.y, DNNRun.y, TmpDenseRowVec);
+                    MatrixOperation.Exp(DNNRun.y);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, DNNRun.y);
+                    MatrixOperation.bsxfunMatrixRightDivideVector(DNNRun.y, TmpDenseRowVec);
+                    break;
+                case "unsupLDA":
+                    // Will not compute the reconstructed input at forward activation to save time during training.
+                    break;
+                case "linearQuad":
+                    MatrixOperation.MatrixMultiplyMatrix(DNNRun.y, paramModel.U, DNNRun.theta_pool[nHidLayer - 1]);
+                    break;
+                default:
+                    throw new Exception("Unknown OutputType.");
+            }
+        }
+
+        /*
+         * Back propagation of the unfolded LDA model (Mirror descent approach)
+         */
+        public static void BackPropagation_LDA(SparseMatrix Xt, SparseMatrix Dt, DNNRun_t DNNRun, paramModel_t paramModel, Grad_t Grad)
+        {
+            // -------- Extract parameters --------
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            int nOutput = paramModel.nOutput;
+            float epsilon1 = paramModel.epsilon1;
+            float epsilon2 = paramModel.epsilon2;
+            float epsilon3 = paramModel.epsilon3;
+            float To = paramModel.To;
+            string OutputType = paramModel.OutputType;
+            int BatchSize = Xt.nCols;
+
+            // -------- Back propagation: top layer --------
+            DenseMatrix grad_Q_po = new DenseMatrix(DNNRun.y);
+            SparseMatrix TmpSparseMat = new SparseMatrix(Xt);
+            DenseMatrix xi = new DenseMatrix(nHid, BatchSize);
+            DenseMatrix TmpDenseMat = new DenseMatrix(nHid, BatchSize);
+            DenseRowVector TmpDenseRowVec = new DenseRowVector(BatchSize);
+            switch (OutputType)
+            {
+                case "softmaxCE":
+                    // ---- grad Q wrt po ----
+                    MatrixOperation.MatrixSubtractMatrix(grad_Q_po, Dt);
+                    MatrixOperation.ScalarMultiplyMatrix(grad_Q_po, To);
+                    // ---- grad Q wrt U ----
+                    MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_U, grad_Q_po, DNNRun.theta_pool[nHidLayer - 1]);
+                    MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_U, (1.0f / (float)BatchSize));
+                    // ---- grad Q wrt pL (x_L) ----
+                    MatrixOperation.MatrixTransposeMultiplyMatrix(xi, paramModel.U, grad_Q_po);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpDenseMat, DNNRun.theta_pool[nHidLayer - 1], xi);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpDenseMat);
+                    MatrixOperation.bsxfunMatrixSubtractVector(xi, xi, TmpDenseRowVec);
+                    break;
+                case "linearQuad":
+                    // ---- grad Q wrt po ----
+                    MatrixOperation.MatrixSubtractMatrix(grad_Q_po, Dt);
+                    MatrixOperation.ScalarMultiplyMatrix(grad_Q_po, 2.0f);
+                    // ---- grad Q wrt U ----
+                    MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_U, grad_Q_po, DNNRun.theta_pool[nHidLayer - 1]);
+                    MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_U, (1.0f / (float)BatchSize));
+                    // ---- grad Q wrt pL (x_L) ----
+                    MatrixOperation.MatrixTransposeMultiplyMatrix(xi, paramModel.U, grad_Q_po);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpDenseMat, DNNRun.theta_pool[nHidLayer - 1], xi);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpDenseMat);
+                    MatrixOperation.bsxfunMatrixSubtractVector(xi, xi, TmpDenseRowVec);
+                    break;
+                case "unsupLDA":
+                    // ---- grad Q wrt po ----
+                    MatrixOperation.MatrixMultiplyMatrix(TmpSparseMat, paramModel.Phi, DNNRun.theta_pool[nHidLayer - 1]);
+                    MatrixOperation.ScalarAddMatrix(TmpSparseMat, TmpSparseMat, epsilon1);
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(TmpSparseMat, Xt, TmpSparseMat); // TmpSparseMat is grad_Q_po in the "unsupLDA" case
+                    // ---- grad Q wrt Phi on top ----
+                    MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_TopPhi, TmpSparseMat, DNNRun.theta_pool[nHidLayer - 1], false);
+                    MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_TopPhi, Grad.grad_Q_TopPhi, (-1.0f / ((float)BatchSize)));
+                    // ---- grad Q wrt pL (x_L) ----
+                    MatrixOperation.MatrixTransposeMultiplyMatrix(xi, paramModel.Phi, TmpSparseMat);
+                    MatrixOperation.ScalarMultiplyMatrix(xi, -1.0f);
+                    MatrixOperation.ScalarAddMatrix(TmpDenseMat, DNNRun.theta_pool[nHidLayer - 1], epsilon2);
+                    MatrixOperation.bsxfunVectorDivideMatrix(TmpDenseMat, paramModel.b);
+                    MatrixOperation.MatrixSubtractMatrix(xi, TmpDenseMat);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpDenseMat, xi, DNNRun.theta_pool[nHidLayer - 1]);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpDenseMat);
+                    MatrixOperation.bsxfunMatrixSubtractVector(xi, xi, TmpDenseRowVec);
+                    break;
+                default:
+                    throw new Exception("Unknown OutputType");
+            }
+
+            // -------- Back propagation: hidden layers --------
+            DenseMatrix tmp_theta_xi = new DenseMatrix(nHid, BatchSize);
+            DenseMatrix tmp_theta_xi_b_T_OVER_theta_lm1_2 = new DenseMatrix(nHid, BatchSize);
+            SparseMatrix tmp_Xt_OVER_Phitheta = new SparseMatrix(Xt);
+            SparseMatrix tmp_Phi_theta_xi = new SparseMatrix(Xt);
+            for (int IdxLayer = nHidLayer - 1; IdxLayer >= 0; IdxLayer--)
+            {
+                // ---- grad wrt b ---
+                MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpDenseMat, DNNRun.theta_pool[IdxLayer], xi);
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(TmpDenseMat, TmpDenseMat, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(TmpDenseMat, TmpDenseMat, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+                MatrixOperation.bsxfunVectorMultiplyMatrix(TmpDenseMat, DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer]);
+                MatrixOperation.HorizontalSumMatrix(Grad.grad_Q_b_pool[IdxLayer], TmpDenseMat);
+                MatrixOperation.ScalarMultiplyVector(Grad.grad_Q_b_pool[IdxLayer], (1.0f / (float)BatchSize));
+                // ---- Compute the intermediate variables ----
+                MatrixOperation.ElementwiseMatrixMultiplyMatrix(tmp_theta_xi, DNNRun.theta_pool[IdxLayer], xi);
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, tmp_theta_xi, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, tmp_theta_xi, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, tmp_theta_xi_b_T_OVER_theta_lm1_2, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, tmp_theta_xi_b_T_OVER_theta_lm1_2, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+                MatrixOperation.bsxfunVectorMultiplyMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, paramModel.b);
+                MatrixOperation.bsxfunVectorMultiplyMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer]);
+                if (IdxLayer == 0) // TmpSparseMat is Phitheta_lm1
+                {
+                    MatrixOperation.MatrixMultiplyMatrix(TmpSparseMat, paramModel.Phi, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.MatrixMultiplyMatrix(TmpSparseMat, paramModel.Phi, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+                MatrixOperation.ElementwiseMatrixDivideMatrix(tmp_Xt_OVER_Phitheta, Xt, TmpSparseMat);
+                MatrixOperation.ElementwiseMatrixDivideMatrix(TmpSparseMat, tmp_Xt_OVER_Phitheta, TmpSparseMat); // TmpSparseMat is tmp_Xt_OVER_Phitheta2
+                MatrixOperation.MatrixMultiplyMatrix(tmp_Phi_theta_xi, paramModel.Phi, tmp_theta_xi);
+                MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpSparseMat, tmp_Phi_theta_xi); // TmpSparseMat is ( tmp_Phi_theta_xi.*tmp_Xt_OVER_Phitheta2 )
+                MatrixOperation.MatrixTransposeMultiplyMatrix(TmpDenseMat, paramModel.Phi, TmpSparseMat);
+                MatrixOperation.bsxfunVectorMultiplyMatrix(TmpDenseMat, DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer]);  // TmpDenseMat is tmp_Tl_Phit_xtPhiTheta2_Phi_theta_xi
+                // ---- Compute the gradient wrt Phi ----
+                MatrixOperation.bsxfunVectorMultiplyMatrix(tmp_Xt_OVER_Phitheta, DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer]);
+                MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_Phi_pool[IdxLayer], tmp_Xt_OVER_Phitheta, tmp_theta_xi, false);
+                MatrixOperation.bsxfunVectorMultiplyMatrix(TmpSparseMat, DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer]);
+                MatrixOperation.ScalarMultiplyMatrix(TmpSparseMat, TmpSparseMat, -1.0f);
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_Phi_pool[IdxLayer], TmpSparseMat, DNNRun.theta0, true);
+                }
+                else
+                {
+                    MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_Phi_pool[IdxLayer], TmpSparseMat, DNNRun.theta_pool[IdxLayer - 1], true);
+                }
+                MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_Phi_pool[IdxLayer], Grad.grad_Q_Phi_pool[IdxLayer], (1.0f / (float)BatchSize));
+                // ---- Compute xi_{l-1} via back propagation ----
+                if (IdxLayer > 0)
+                {
+                    MatrixOperation.MatrixSubtractMatrix(TmpDenseMat, xi, TmpDenseMat);
+                    MatrixOperation.MatrixSubtractMatrix(TmpDenseMat, tmp_theta_xi_b_T_OVER_theta_lm1_2);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(tmp_theta_xi, DNNRun.theta_pool[IdxLayer - 1], TmpDenseMat); // tmp_theta_xi is tmp1
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, tmp_theta_xi);
+                    MatrixOperation.bsxfunMatrixSubtractVector(xi, TmpDenseMat, TmpDenseRowVec);
+                }
+
+            }
+        }
+
+        /*
+         * Back propagation of the unfolded LDA model (Mirror descent approach). Untied model parameters across layers
+         */
+        public static void BackPropagation_LDA_Untied(SparseMatrix Xt, SparseMatrix Dt, DNNRun_t DNNRun, paramModel_t paramModel, Grad_t Grad)
+        {
+            // -------- Extract parameters --------
+            int nHid = paramModel.nHid;
+            int nHidLayer = paramModel.nHidLayer;
+            int nOutput = paramModel.nOutput;
+            float epsilon1 = paramModel.epsilon1;
+            float epsilon2 = paramModel.epsilon2;
+            float epsilon3 = paramModel.epsilon3;
+            float To = paramModel.To;
+            string OutputType = paramModel.OutputType;
+            int BatchSize = Xt.nCols;
+
+            // -------- Back propagation: top layer --------
+            DenseMatrix grad_Q_po = new DenseMatrix(DNNRun.y);
+            SparseMatrix TmpSparseMat = new SparseMatrix(Xt);
+            DenseMatrix xi = new DenseMatrix(nHid, BatchSize);
+            DenseMatrix TmpDenseMat = new DenseMatrix(nHid, BatchSize);
+            DenseRowVector TmpDenseRowVec = new DenseRowVector(BatchSize);
+            switch (OutputType)
+            {
+                case "softmaxCE":
+                    // ---- grad Q wrt po ----
+                    MatrixOperation.MatrixSubtractMatrix(grad_Q_po, Dt);
+                    MatrixOperation.ScalarMultiplyMatrix(grad_Q_po, To);
+                    // ---- grad Q wrt U ----
+                    MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_U, grad_Q_po, DNNRun.theta_pool[nHidLayer - 1]);
+                    MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_U, (1.0f / (float)BatchSize));
+                    // ---- grad Q wrt pL (x_L) ----
+                    MatrixOperation.MatrixTransposeMultiplyMatrix(xi, paramModel.U, grad_Q_po);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpDenseMat, DNNRun.theta_pool[nHidLayer - 1], xi);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpDenseMat);
+                    MatrixOperation.bsxfunMatrixSubtractVector(xi, xi, TmpDenseRowVec);
+                    break;
+                case "linearQuad":
+                    // ---- grad Q wrt po ----
+                    MatrixOperation.MatrixSubtractMatrix(grad_Q_po, Dt);
+                    MatrixOperation.ScalarMultiplyMatrix(grad_Q_po, 2.0f);
+                    // ---- grad Q wrt U ----
+                    MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_U, grad_Q_po, DNNRun.theta_pool[nHidLayer - 1]);
+                    MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_U, (1.0f / (float)BatchSize));
+                    // ---- grad Q wrt pL (x_L) ----
+                    MatrixOperation.MatrixTransposeMultiplyMatrix(xi, paramModel.U, grad_Q_po);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpDenseMat, DNNRun.theta_pool[nHidLayer - 1], xi);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpDenseMat);
+                    MatrixOperation.bsxfunMatrixSubtractVector(xi, xi, TmpDenseRowVec);
+                    break;
+                case "unsupLDA":
+                    // ---- grad Q wrt po ----
+                    MatrixOperation.MatrixMultiplyMatrix(TmpSparseMat, paramModel.Phi, DNNRun.theta_pool[nHidLayer - 1]);
+                    MatrixOperation.ScalarAddMatrix(TmpSparseMat, TmpSparseMat, epsilon1);
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(TmpSparseMat, Xt, TmpSparseMat); // TmpSparseMat is grad_Q_po in the "unsupLDA" case
+                    // ---- grad Q wrt Phi on top ----
+                    MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_TopPhi, TmpSparseMat, DNNRun.theta_pool[nHidLayer - 1], false);
+                    MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_TopPhi, Grad.grad_Q_TopPhi, (-1.0f / ((float)BatchSize)));
+                    // ---- grad Q wrt pL (x_L) ----
+                    MatrixOperation.MatrixTransposeMultiplyMatrix(xi, paramModel.Phi, TmpSparseMat);
+                    MatrixOperation.ScalarMultiplyMatrix(xi, -1.0f);
+                    MatrixOperation.ScalarAddMatrix(TmpDenseMat, DNNRun.theta_pool[nHidLayer - 1], epsilon2);
+                    MatrixOperation.bsxfunVectorDivideMatrix(TmpDenseMat, paramModel.b);
+                    MatrixOperation.MatrixSubtractMatrix(xi, TmpDenseMat);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpDenseMat, xi, DNNRun.theta_pool[nHidLayer - 1]);
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpDenseMat);
+                    MatrixOperation.bsxfunMatrixSubtractVector(xi, xi, TmpDenseRowVec);
+                    break;
+                default:
+                    throw new Exception("Unknown OutputType");
+            }
+
+            // -------- Back propagation: hidden layers --------
+            DenseMatrix tmp_theta_xi = new DenseMatrix(nHid, BatchSize);
+            DenseMatrix tmp_theta_xi_b_T_OVER_theta_lm1_2 = new DenseMatrix(nHid, BatchSize);
+            SparseMatrix tmp_Xt_OVER_Phitheta = new SparseMatrix(Xt);
+            SparseMatrix tmp_Phi_theta_xi = new SparseMatrix(Xt);
+            for (int IdxLayer = nHidLayer - 1; IdxLayer >= 0; IdxLayer--)
+            {
+                // ---- grad wrt b ---
+                MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpDenseMat, DNNRun.theta_pool[IdxLayer], xi);
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(TmpDenseMat, TmpDenseMat, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(TmpDenseMat, TmpDenseMat, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+                MatrixOperation.bsxfunVectorMultiplyMatrix(TmpDenseMat, DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer]);
+                MatrixOperation.HorizontalSumMatrix(Grad.grad_Q_b_pool[IdxLayer], TmpDenseMat);
+                MatrixOperation.ScalarMultiplyVector(Grad.grad_Q_b_pool[IdxLayer], (1.0f / (float)BatchSize));
+                // ---- Compute the intermediate variables ----
+                MatrixOperation.ElementwiseMatrixMultiplyMatrix(tmp_theta_xi, DNNRun.theta_pool[IdxLayer], xi);
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, tmp_theta_xi, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, tmp_theta_xi, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, tmp_theta_xi_b_T_OVER_theta_lm1_2, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.ElementwiseMatrixDivideMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, tmp_theta_xi_b_T_OVER_theta_lm1_2, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+                MatrixOperation.bsxfunVectorMultiplyMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, paramModel.b);
+                MatrixOperation.bsxfunVectorMultiplyMatrix(tmp_theta_xi_b_T_OVER_theta_lm1_2, DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer]);
+                if (IdxLayer == 0) // TmpSparseMat is Phitheta_lm1
+                {
+                    MatrixOperation.MatrixMultiplyMatrix(TmpSparseMat, paramModel.Phi, DNNRun.theta0);
+                }
+                else
+                {
+                    MatrixOperation.MatrixMultiplyMatrix(TmpSparseMat, paramModel.Phi, DNNRun.theta_pool[IdxLayer - 1]);
+                }
+                MatrixOperation.ElementwiseMatrixDivideMatrix(tmp_Xt_OVER_Phitheta, Xt, TmpSparseMat);
+                MatrixOperation.ElementwiseMatrixDivideMatrix(TmpSparseMat, tmp_Xt_OVER_Phitheta, TmpSparseMat); // TmpSparseMat is tmp_Xt_OVER_Phitheta2
+                MatrixOperation.MatrixMultiplyMatrix(tmp_Phi_theta_xi, paramModel.Phi, tmp_theta_xi);
+                MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpSparseMat, tmp_Phi_theta_xi); // TmpSparseMat is ( tmp_Phi_theta_xi.*tmp_Xt_OVER_Phitheta2 )
+                MatrixOperation.MatrixTransposeMultiplyMatrix(TmpDenseMat, paramModel.Phi, TmpSparseMat);
+                MatrixOperation.bsxfunVectorMultiplyMatrix(TmpDenseMat, DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer]);  // TmpDenseMat is tmp_Tl_Phit_xtPhiTheta2_Phi_theta_xi
+                // ---- Compute the gradient wrt Phi ----
+                MatrixOperation.bsxfunVectorMultiplyMatrix(tmp_Xt_OVER_Phitheta, DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer]);
+                MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_Phi_pool[IdxLayer], tmp_Xt_OVER_Phitheta, tmp_theta_xi, false);
+                MatrixOperation.bsxfunVectorMultiplyMatrix(TmpSparseMat, DNNRun.T_pool.DenseMatrixValuePerRow[IdxLayer]);
+                MatrixOperation.ScalarMultiplyMatrix(TmpSparseMat, TmpSparseMat, -1.0f);
+                if (IdxLayer == 0)
+                {
+                    MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_Phi_pool[IdxLayer], TmpSparseMat, DNNRun.theta0, true);
+                }
+                else
+                {
+                    MatrixOperation.MatrixMultiplyMatrixTranspose(Grad.grad_Q_Phi_pool[IdxLayer], TmpSparseMat, DNNRun.theta_pool[IdxLayer - 1], true);
+                }
+                MatrixOperation.ScalarMultiplyMatrix(Grad.grad_Q_Phi_pool[IdxLayer], Grad.grad_Q_Phi_pool[IdxLayer], (1.0f / (float)BatchSize));
+                // ---- Compute xi_{l-1} via back propagation ----
+                if (IdxLayer > 0)
+                {
+                    MatrixOperation.MatrixSubtractMatrix(TmpDenseMat, xi, TmpDenseMat);
+                    MatrixOperation.MatrixSubtractMatrix(TmpDenseMat, tmp_theta_xi_b_T_OVER_theta_lm1_2);
+                    MatrixOperation.ElementwiseMatrixMultiplyMatrix(tmp_theta_xi, DNNRun.theta_pool[IdxLayer - 1], TmpDenseMat); // tmp_theta_xi is tmp1
+                    MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, tmp_theta_xi);
+                    MatrixOperation.bsxfunMatrixSubtractVector(xi, TmpDenseMat, TmpDenseRowVec);
+                }
+
+            }
+        }
+
+        /*
+         * Update a (model parameter) matrix using projected stochastic gradient descent (PSGD) with line search
+         * so that each column of the matrix is always in a probability simplex.
+         */
+        //public static float PSGD_Update(DenseMatrix X, DenseMatrix Grad, DenseRowVector LearningRatePerCol, float eta)
+        //{
+        //    if (X.nCols != Grad.nCols || X.nRows != Grad.nRows)
+        //    {
+        //        throw new Exception("Dimension mismatch.");
+        //    }
+        //    DenseRowVector nLearnLineSearchPerCol = new DenseRowVector(X.nCols, 0.0f);
+        //    DenseMatrix Update = new DenseMatrix(Grad.nRows, Grad.nCols);
+        //    DenseMatrix X_old = new DenseMatrix(X);
+        //    Parallel.For(0, X.nCols, new ParallelOptions { MaxDegreeOfParallelism = MatrixOperation.MaxMultiThreadDegree }, IdxCol =>
+        //    {
+        //        while (true)
+        //        {
+        //            MatrixOperation.ScalarMultiplyVector(Update.DenseMatrixValue[IdxCol], Grad.DenseMatrixValue[IdxCol], LearningRatePerCol.VectorValue[IdxCol]);
+        //            MatrixOperation.VectorSubtractVector(X.DenseMatrixValue[IdxCol], X_old.DenseMatrixValue[IdxCol], Update.DenseMatrixValue[IdxCol]);
+        //            Projection.ProjCols2SimplexPlane(X.DenseMatrixValue[IdxCol]);
+        //            if (MatrixOperation.CountValuesLessThanThreshold(X.DenseMatrixValue[IdxCol], 1e-32f) > 0)
+        //            {
+        //                LearningRatePerCol.VectorValue[IdxCol] *= eta;
+        //                nLearnLineSearchPerCol.VectorValue[IdxCol]++;
+        //                if (nLearnLineSearchPerCol.VectorValue[IdxCol] > 100)
+        //                {
+        //                    Console.WriteLine("Warning: Number of line search exceeds 100. min_X_old={0}, min_X={1}",
+        //                        X_old.Min(), X.Min());
+        //                    break;
+        //                }
+        //            }
+        //            else
+        //            {
+        //                break;
+        //            }
+        //        }
+        //    });
+        //    return nLearnLineSearchPerCol.VectorValue.Average();
+        //}
+        public static float PSGD_Update(DenseMatrix X, DenseMatrix Grad, DenseRowVector LearningRatePerCol, float eta)
+        {
+            if (X.nCols != Grad.nCols || X.nRows != Grad.nRows)
+            {
+                throw new Exception("Dimension mismatch.");
+            }
+            DenseRowVector nLearnLineSearchPerCol = new DenseRowVector(X.nCols, 0.0f);
+            DenseMatrix Update = new DenseMatrix(Grad.nRows, Grad.nCols);
+            Projection.ProjCols2OrthogonalSimplexPlane(Update, Grad);
+            MatrixOperation.bsxfunVectorMultiplyMatrix(Update, LearningRatePerCol);
+            DenseMatrix X_old = new DenseMatrix(X);
+            Parallel.For(0, X.nCols, new ParallelOptions { MaxDegreeOfParallelism = MatrixOperation.MaxMultiThreadDegree }, IdxCol =>
+            {
+                var xCol = X.DenseMatrixValue[IdxCol];
+                var xOldCol = X_old.DenseMatrixValue[IdxCol];
+                var UpdateCol = Update.DenseMatrixValue[IdxCol];
+                var LearnRateCol = LearningRatePerCol.VectorValue;
+                var nLearnCol = nLearnLineSearchPerCol.VectorValue;
+                while (true)
+                {   
+                    MatrixOperation.VectorSubtractVector(xCol, xOldCol, UpdateCol);
+                    if (MatrixOperation.CountValuesLessThanThreshold(xCol, 1e-32f) > 0)
+                    {
+                        LearnRateCol[IdxCol] *= eta;
+                        MatrixOperation.ScalarMultiplyVector(UpdateCol, eta);
+                        ++nLearnCol[IdxCol];
+                        if (nLearnCol[IdxCol] > 100)
+                        {
+                            Console.WriteLine("Warning: Number of line search exceeds 100. min_X_old={0}, min_X={1}",
+                                X_old.Min(), X.Min());
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            });
+            return nLearnLineSearchPerCol.VectorValue.Average();
+        }
+
+        /*
+         * Compute inverse document frequency (IDF) of the data
+         */
+        public static DenseColumnVector ComputeInverseDocumentFrequency(SparseMatrix InputData)
+        {
+            Console.WriteLine("=================================================="); 
+            DenseColumnVector IDF = new DenseColumnVector(InputData.nRows);
+            int[] DocFreq = new int[InputData.nRows];
+            int Cnt = 0;
+            for (int IdxCol = 0; IdxCol < InputData.nCols; ++IdxCol)
+            {
+                int nNonzero = InputData.SparseColumnVectors[IdxCol].nNonzero;
+                int[] ColKey = InputData.SparseColumnVectors[IdxCol].Key;
+                for (int IdxRow = 0; IdxRow < nNonzero; ++IdxRow)
+                {
+                    ++DocFreq[ColKey[IdxRow]];
+                }
+                ++Cnt;
+                if (Cnt % 10000 == 0)
+                {
+                    Console.Write("Generating document frequency: {0}/{1}\r", Cnt, InputData.nCols);
+                }
+            }
+            Console.WriteLine("Generating document frequency: {0}/{1}", Cnt, InputData.nCols);
+            Cnt = 0;
+            for (int IdxRow = 0; IdxRow < InputData.nRows; ++IdxRow )
+            {
+                if (DocFreq[IdxRow] > 0)
+                {
+                    IDF.VectorValue[IdxRow] = 1.0f / ((float)DocFreq[IdxRow]);
+                }
+                else
+                {
+                    IDF.VectorValue[IdxRow] = 1.0f / ((float)InputData.nCols);
+                }
+                ++Cnt;
+                if (Cnt % 10000 == 0)
+                {
+                    Console.Write("Generating inverse document frquency: {0}/{1}\r", Cnt, InputData.nRows);
+                }
+            }
+            Console.WriteLine("Generating inverse document frquency: {0}/{1}", Cnt, InputData.nRows);
+
+            Console.WriteLine("=================================================="); 
+            return IDF;
+        }
+
+        /*
+         * Compute Cross Entropy between the reconstructed input and the actual input. (Unsupervised learning case)
+         */
+        public static float ComputeCrossEntropy(SparseMatrix Xt, DenseMatrix Phi, DenseMatrix theta_top)
+        {
+            SparseMatrix TmpSparseMat = new SparseMatrix(Xt);
+            DenseRowVector TmpDenseRowVec = new DenseRowVector(Xt.nCols);
+            MatrixOperation.MatrixMultiplyMatrix(TmpSparseMat, Phi, theta_top);
+            MatrixOperation.Log(TmpSparseMat);
+            MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpSparseMat, Xt);
+            MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpSparseMat);
+            return (-1.0f) * TmpDenseRowVec.VectorValue.Sum();
+        }
+
+        /*
+         * Compute Regularized Cross Entropy between the reconstructed input and the actual input. (Loss funtion for the unsupervised learning case)
+         */
+        public static float ComputeRegularizedCrossEntropy(SparseMatrix Xt, DenseMatrix Phi, DenseMatrix theta_top, DenseColumnVector b)
+        {
+            SparseMatrix TmpSparseMat = new SparseMatrix(Xt);
+            DenseRowVector TmpDenseRowVec = new DenseRowVector(Xt.nCols);
+            MatrixOperation.MatrixMultiplyMatrix(TmpSparseMat, Phi, theta_top);
+            MatrixOperation.Log(TmpSparseMat);
+            MatrixOperation.ElementwiseMatrixMultiplyMatrix(TmpSparseMat, Xt);
+            MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpSparseMat);
+            float CE = (-1.0f) * TmpDenseRowVec.VectorValue.Sum();
+            DenseMatrix TmpDenseMat = new DenseMatrix(theta_top.nRows, theta_top.nCols);
+            MatrixOperation.Log(TmpDenseMat, theta_top);
+            MatrixOperation.bsxfunVectorMultiplyMatrix(TmpDenseMat, b);
+            MatrixOperation.VerticalSumMatrix(TmpDenseRowVec, TmpDenseMat);
+            CE = CE - TmpDenseRowVec.VectorValue.Sum();
+            return CE;
+        }
+
+        /*
+         * Testing the cross entropy on the test data (Unsupervised learning)
+         */
+        public static float Testing_UnsupLDA_UnfoldBP(SparseMatrix TestData, paramModel_t paramModel)
+        {
+            Console.WriteLine("----------------------------------------------------");
+            Console.Write(" Testing: ");
+            DNNRun_t DNNRun = new DNNRun_t(paramModel.nHid, TestData.nCols, paramModel.nHidLayer, paramModel.nOutput);
+            ForwardActivation_LDA(TestData, DNNRun, paramModel);
+            float NegLogLoss = ComputeCrossEntropy(TestData, paramModel.Phi, DNNRun.theta_pool[paramModel.nHidLayer - 1]);
+            NegLogLoss /= (float)TestData.nCols;
+            Console.WriteLine(" -LogLoss = {0}", NegLogLoss);
+            Console.WriteLine("----------------------------------------------------");
+            return NegLogLoss;
+        }
+        public static float Testing_UnsupLDA_UnfoldBP(SparseMatrix TestData, paramModel_t paramModel, int BatchSize_normal)
+        {
+            Console.WriteLine("----------------------------------------------------");
+            int nTest = TestData.nCols;
+            int nBatch = (int)Math.Ceiling(((float)nTest) / ((float)BatchSize_normal));
+            float NegLogLoss = 0.0f;
+            DNNRun_t DNNRun_NormalBatch = new DNNRun_t(paramModel.nHid, BatchSize_normal, paramModel.nHidLayer, paramModel.nOutput);
+            DNNRun_t DNNRun_EndBatch = new DNNRun_t(paramModel.nHid, nTest - (nBatch - 1) * BatchSize_normal, paramModel.nHidLayer, paramModel.nOutput);
+            DNNRun_t DNNRun = null;
+            int[] IdxSample_Tot = new int[nTest];
+            for (int Idx = 0; Idx < nTest; Idx++)
+            {
+                IdxSample_Tot[Idx] = Idx;
+            }
+            for (int IdxBatch = 0; IdxBatch < nBatch; IdxBatch++)
+            {
+                // Extract the batch
+                int BatchSize = 0;
+                if (IdxBatch < nBatch - 1)
+                {
+                    BatchSize = BatchSize_normal;
+                    DNNRun = DNNRun_NormalBatch;
+                }
+                else
+                {
+                    BatchSize = nTest - IdxBatch * BatchSize_normal;
+                    DNNRun = DNNRun_EndBatch;
+                }
+                SparseMatrix Xt = new SparseMatrix(paramModel.nInput, BatchSize);
+                int[] IdxSample = new int[BatchSize];
+                Array.Copy(IdxSample_Tot, IdxBatch * BatchSize_normal, IdxSample, 0, BatchSize);
+                TestData.GetColumns(Xt, IdxSample);
+
+                // Forward activation
+                LDA_Learn.ForwardActivation_LDA(Xt, DNNRun, paramModel);
+
+                // Compute loss
+                NegLogLoss += ComputeCrossEntropy(Xt, paramModel.Phi, DNNRun.theta_pool[paramModel.nHidLayer - 1]);
+
+                Console.Write(" Testing: Bat#{0}/{1}\r", (IdxBatch + 1), nBatch);
+            }
+            NegLogLoss = NegLogLoss / ((float)nTest);
+            Console.WriteLine(" Testing: -LogLoss = {0}", NegLogLoss);
+            Console.WriteLine("----------------------------------------------------");
+            return NegLogLoss;
+        }
+
+        /*
+         * Testing the model on the test data (Supervised learning). Compute the classification error (softmaxCE) or MSE (linearQuad).
+         */
+        public static float Testing_SupLDA_UnfoldBP(SparseMatrix TestData, SparseMatrix TestLabel, paramModel_t paramModel)
+        {
+            Console.WriteLine("----------------------------------------------------");
+            Console.Write(" Testing: ");
+            DNNRun_t DNNRun = new DNNRun_t(paramModel.nHid, TestData.nCols, paramModel.nHidLayer, paramModel.nOutput);
+            ForwardActivation_LDA(TestData, DNNRun, paramModel);
+            int nTotError;
+            float TestError;
+            switch (paramModel.OutputType)
+            {
+                case "softmaxCE":
+                    nTotError = ComputeNumberOfErrors(TestLabel, DNNRun.y);
+                    TestError = 100 * ((float)nTotError) / ((float)TestLabel.nCols);
+                    Console.WriteLine(" TestError = {0}%", TestError);
+                    break;
+                case "linearQuad":
+                    TestError = ComputeSupervisedLoss(TestLabel, DNNRun.y, paramModel.OutputType);
+                    Console.WriteLine(" MSE = {0}", TestError);
+                    break;
+                default:
+                    throw new Exception("Unknown OutputType.");
+            }
+            Console.WriteLine("----------------------------------------------------");
+            return TestError;
+        }
+        public static float Testing_SupLDA_UnfoldBP(SparseMatrix TestData, SparseMatrix TestLabel, paramModel_t paramModel, int BatchSize_normal, string ScoreFileName)
+        {
+            Console.WriteLine("----------------------------------------------------");
+            int nTest = TestData.nCols;
+            int nBatch = (int)Math.Ceiling(((float)nTest) / ((float)BatchSize_normal));
+            float TestError = 0.0f;
+            DNNRun_t DNNRun_NormalBatch = new DNNRun_t(paramModel.nHid, BatchSize_normal, paramModel.nHidLayer, paramModel.nOutput);
+            DNNRun_t DNNRun_EndBatch = new DNNRun_t(paramModel.nHid, nTest - (nBatch - 1) * BatchSize_normal, paramModel.nHidLayer, paramModel.nOutput);
+            DNNRun_t DNNRun = null;
+            int[] IdxSample_Tot = new int[nTest];
+            StreamWriter ScoreFile = new StreamWriter(ScoreFileName);
+            for (int Idx = 0; Idx < nTest; Idx++)
+            {
+                IdxSample_Tot[Idx] = Idx;
+            }
+            // ---- Test in a batch-wise manner over the test data ----
+            for (int IdxBatch = 0; IdxBatch < nBatch; IdxBatch++)
+            {
+                // Extract the batch
+                int BatchSize;
+                if (IdxBatch < nBatch - 1)
+                {
+                    BatchSize = BatchSize_normal;
+                    DNNRun = DNNRun_NormalBatch;
+                }
+                else
+                {
+                    BatchSize = nTest - IdxBatch * BatchSize_normal;
+                    DNNRun = DNNRun_EndBatch;
+                }
+                SparseMatrix Xt = new SparseMatrix(paramModel.nInput, BatchSize);
+                SparseMatrix Dt = new SparseMatrix(paramModel.nOutput, BatchSize);
+                int[] IdxSample = new int[BatchSize];
+                Array.Copy(IdxSample_Tot, IdxBatch * BatchSize_normal, IdxSample, 0, BatchSize);
+                TestData.GetColumns(Xt, IdxSample);
+                TestLabel.GetColumns(Dt, IdxSample);
+
+                // Forward activation
+                LDA_Learn.ForwardActivation_LDA(Xt, DNNRun, paramModel);
+
+                // Compute loss
+                switch (paramModel.OutputType)
+                {
+                    case "softmaxCE":
+                        TestError += ComputeNumberOfErrors(Dt, DNNRun.y);
+                        break;
+                    case "linearQuad":
+                        TestError += ComputeSupervisedLoss(Dt, DNNRun.y, paramModel.OutputType);
+                        break;
+                    default:
+                        throw new Exception("Unknown OutputType.");
+                }
+
+                // Write the score into file
+                for (int IdxCol = 0; IdxCol < DNNRun.y.nCols; IdxCol++)
+                {
+                    ScoreFile.WriteLine(String.Join("\t", DNNRun.y.DenseMatrixValue[IdxCol].VectorValue));
+                }
+
+                Console.Write(" Testing: Bat#{0}/{1}\r", (IdxBatch + 1), nBatch);
+            }
+            switch (paramModel.OutputType)
+            {
+                case "softmaxCE":
+                    TestError = 100 * TestError / nTest;
+                    Console.WriteLine(" TestError = {0}%          ", TestError);
+                    break;
+                case "linearQuad":
+                    TestError = TestError / nTest;
+                    Console.WriteLine(" MSE = {0}                 ", TestError);
+                    break;
+                default:
+                    throw new Exception("Unknown OutputType.");
+            }
+            Console.WriteLine("----------------------------------------------------");
+            ScoreFile.Close();
+            return TestError;
+        }
+
+        /*
+         * Dumping features
+         */
+        public static void DumpingFeature_UnsupLDA_UnfoldBP(SparseMatrix InputData, paramModel_t paramModel, int BatchSize_normal, string FeatureFileName, string DataName)
+        {
+            Console.WriteLine("----------------------------------------------------");
+            int nTest = InputData.nCols;
+            int nBatch = (int)Math.Ceiling(((float)nTest) / ((float)BatchSize_normal));
+            DNNRun_t DNNRun_NormalBatch = new DNNRun_t(paramModel.nHid, BatchSize_normal, paramModel.nHidLayer, paramModel.nOutput);
+            DNNRun_t DNNRun_EndBatch = new DNNRun_t(paramModel.nHid, nTest - (nBatch - 1) * BatchSize_normal, paramModel.nHidLayer, paramModel.nOutput);
+            DNNRun_t DNNRun = null;
+            Console.Write(" Dumping feature ({0}): Bat#{1}/{2}\r", DataName, 0, nBatch);
+            int[] IdxSample_Tot = new int[nTest];
+            for (int Idx = 0; Idx < nTest; Idx++)
+            {
+                IdxSample_Tot[Idx] = Idx;
+            }
+            StreamWriter FeatureFile = new StreamWriter(FeatureFileName);
+            for (int IdxBatch = 0; IdxBatch < nBatch; IdxBatch++)
+            {
+                // Extract the batch
+                int BatchSize = 0;
+                if (IdxBatch < nBatch - 1)
+                {
+                    BatchSize = BatchSize_normal;
+                    DNNRun = DNNRun_NormalBatch;
+                }
+                else
+                {
+                    BatchSize = nTest - IdxBatch * BatchSize_normal;
+                    DNNRun = DNNRun_EndBatch;
+                }
+                SparseMatrix Xt = new SparseMatrix(paramModel.nInput, BatchSize);
+                int[] IdxSample = new int[BatchSize];
+                Array.Copy(IdxSample_Tot, IdxBatch * BatchSize_normal, IdxSample, 0, BatchSize);
+                InputData.GetColumns(Xt, IdxSample);
+
+                // Forward activation
+                LDA_Learn.ForwardActivation_LDA(Xt, DNNRun, paramModel);
+
+                // Dump the feature into file
+                for (int Idx = 0; Idx < BatchSize; Idx++)
+                {
+                    FeatureFile.WriteLine(String.Join("\t", DNNRun.theta_pool[paramModel.nHidLayer - 1].DenseMatrixValue[Idx].VectorValue));
+                }
+
+                Console.Write(" Dumping feature ({0}): Bat#{1}/{2}\r", DataName, (IdxBatch + 1), nBatch);
+            }
+            Console.Write("\n");
+            Console.WriteLine("----------------------------------------------------");
+            FeatureFile.Close();
+        }
+    }
+
+    public class DNNRun_t
+    {
+        public DenseMatrix[] theta_pool = null;
+        public DenseMatrix theta0 = null;
+        public DenseMatrix T_pool = null;
+        public DenseMatrix y = null;
+        public int nHid = 0;
+        public int BatchSize = 0;
+        public int nHidLayer = 0;
+        public int nOutput = 0;
+
+        public DNNRun_t()
+        {
+        }
+
+        public DNNRun_t(int NumHiddenNode, int InputBatchSize, int NumHiddenLayer, int NumOutput)
+        {
+            nHid = NumHiddenNode;
+            BatchSize = InputBatchSize;
+            nHidLayer = NumHiddenLayer;
+            nOutput = NumOutput;
+
+            theta0 = new DenseMatrix(nHid, BatchSize, 1.0f / ((float)nHid));
+            theta_pool = new DenseMatrix[nHidLayer];
+            for (int IdxLayer = 0; IdxLayer < nHidLayer; IdxLayer++)
+            {
+                theta_pool[IdxLayer] = new DenseMatrix(nHid, BatchSize);
+            }
+
+            T_pool = new DenseMatrix(nHidLayer, BatchSize, false);
+            y = new DenseMatrix(nOutput, BatchSize);
+        }
+
+    }
+    
+    /*
+     * Gradient for the model (Dense gradient)
+     */
+    public class Grad_t
+    {
+        public DenseMatrix grad_Q_U = null;
+        public DenseColumnVector[] grad_Q_b_pool = null;
+        public SparseMatrix[] grad_Q_Phi_pool = null;
+        public SparseMatrix grad_Q_TopPhi = null;
+        public DenseMatrix grad_Q_Phi = null;
+
+        public Grad_t()
+        {
+        }
+
+        public Grad_t(int NumHiddenNode, int NumOutput, int NumInput, int nHidLayer, string OutputType)
+        {
+            grad_Q_b_pool = new DenseColumnVector[nHidLayer];
+            for (int IdxLayer = 0; IdxLayer < nHidLayer; IdxLayer++)
+            {
+                grad_Q_b_pool[IdxLayer] = new DenseColumnVector(NumHiddenNode);
+            }
+            grad_Q_Phi_pool = new SparseMatrix[nHidLayer];
+            for (int IdxLayer = 0; IdxLayer < nHidLayer; IdxLayer++)
+            {
+                grad_Q_Phi_pool[IdxLayer] = new SparseMatrix(NumInput, NumHiddenNode, true);
+            }
+            if (OutputType == "linearQuad" || OutputType == "softmaxCE")
+            {
+                grad_Q_U = new DenseMatrix(NumOutput, NumHiddenNode);
+            }
+            else if (OutputType == "unsupLDA")
+            {
+                grad_Q_TopPhi = new SparseMatrix(NumInput, NumHiddenNode, true);
+            }
+            grad_Q_Phi = new DenseMatrix(NumInput, NumHiddenNode);
+        }
+
+        public void SetSparsePatternForAllGradPhi(int[] SourceKey)
+        {
+            if (grad_Q_TopPhi != null)
+            {
+                grad_Q_TopPhi.SetSparsePatternForAllColumn(SourceKey);
+            }
+            for (int IdxLayer = 0; IdxLayer < grad_Q_Phi_pool.Length; IdxLayer++)
+            {
+                grad_Q_Phi_pool[IdxLayer].SetSparsePatternForAllColumn(SourceKey);
+            }
+        }
+    }
+    /*
+     * Sparsely sampled gradient
+     */
+    public class GradS_t
+    {
+        public DenseMatrix grad_Q_U = null;
+        public DenseColumnVector[] grad_Q_b_pool = null;
+        public SparseMatrix[] grad_Q_Phi_pool = null;
+        public SparseMatrix grad_Q_TopPhi = null;
+        public SparseMatrix grad_Q_Phi = null;
+
+        public GradS_t()
+        {
+        }
+
+        public GradS_t(int NumHiddenNode, int NumOutput, int NumInput, int nHidLayer, string OutputType)
+        {
+            grad_Q_b_pool = new DenseColumnVector[nHidLayer];
+            for (int IdxLayer = 0; IdxLayer < nHidLayer; IdxLayer++)
+            {
+                grad_Q_b_pool[IdxLayer] = new DenseColumnVector(NumHiddenNode);
+            }
+            grad_Q_Phi_pool = new SparseMatrix[nHidLayer];
+            for (int IdxLayer = 0; IdxLayer < nHidLayer; IdxLayer++)
+            {
+                grad_Q_Phi_pool[IdxLayer] = new SparseMatrix(NumInput, NumHiddenNode, true);
+            }
+            if (OutputType == "linearQuad" || OutputType == "softmaxCE")
+            {
+                grad_Q_U = new DenseMatrix(NumOutput, NumHiddenNode);
+            }
+            else if (OutputType == "unsupLDA")
+            {
+                grad_Q_TopPhi = new SparseMatrix(NumInput, NumHiddenNode, true);
+            }
+            grad_Q_Phi = new SparseMatrix(NumInput, NumHiddenNode, true);
+        }
+
+        public void SetSparsePatternForAllGradPhi(int[] SourceKey)
+        {
+            if (grad_Q_TopPhi != null)
+            {
+                grad_Q_TopPhi.SetSparsePatternForAllColumn(SourceKey);
+            }
+            for (int IdxLayer = 0; IdxLayer < grad_Q_Phi_pool.Length; IdxLayer++)
+            {
+                grad_Q_Phi_pool[IdxLayer].SetSparsePatternForAllColumn(SourceKey);
+            }
+            grad_Q_Phi.SetSparsePatternForAllColumn(SourceKey);
+        }
+    }
+
+
+
+}
