@@ -5,6 +5,7 @@ This paper is accepted by NIPS 2015.
 Link to this paper: http://papers.nips.cc/paper/5967-end-to-end-learning-of-lda-by-mirror-descent-back-propagation-over-a-deep-architecture.pdf
 
 Here is a brief explanation on command line arguments:
+
 --nHid: Number of topics
 
 --nHidLayer: Number of layers
