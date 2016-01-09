@@ -15,15 +15,18 @@ For Windows users, simply open a command prompt window and run "SupLDA_UnfoldBP.
 For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Then, open a terminal and run "mono SupLDA_UnfoldBP.exe" or "mono UnsupLDA_UnfoldBP.exe"
 
 # Regression demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
+## data
+.label: 1~5 star rating, shifted to zero mean
+.feature: each line is a document in bag-of-words representation. Colon is used to delimit word index and word counts. Tab is used to delimit different words.
 The data folder is bp-lda/data_AmazonMovieReview_1percent/, in which you can find label files and feature files for train/test, respectively.
 
 alpha = 1.001:
 
-SupLDA_UnfoldBP.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --beta 1.0001 --nEpoch 20 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.01 --mu_U 1 --nSamplesPerDisplay 10000 --nEpochPerSave 1 --nEpochPerTest 1 --nEpochPerDump 5 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 1 --DebugLevel high --flag_AdaptivenHidLayer false --flag_RunningAvg true
+SupLDA_UnfoldBP.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --beta 1.0001 --nEpoch 50 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.01 --mu_U 1 --nSamplesPerDisplay 10000 --nEpochPerSave 1 --nEpochPerTest 1 --nEpochPerDump 5 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 1 --DebugLevel high --flag_AdaptivenHidLayer false --flag_RunningAvg true
 
 alpha = 0.1:
 
-SupLDA_UnfoldBP.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 0.1 --beta 1.0001 --nEpoch 20 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.0001 --mu_U 1 --nSamplesPerDisplay 10000 --nEpochPerSave 1 --nEpochPerTest 1 --nEpochPerDump 5 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 0.01 --DebugLevel high --flag_AdaptivenHidLayer true --flag_RunningAvg true
+SupLDA_UnfoldBP.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 0.1 --beta 1.0001 --nEpoch 50 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.0001 --mu_U 1 --nSamplesPerDisplay 10000 --nEpochPerSave 1 --nEpochPerTest 1 --nEpochPerDump 5 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 0.01 --DebugLevel high --flag_AdaptivenHidLayer true --flag_RunningAvg true
 
 Here is a brief explanation on command line arguments:
 
