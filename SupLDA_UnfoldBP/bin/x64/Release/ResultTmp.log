@@ -1,0 +1,490 @@
+- Ep#1/20 Bat#10/64. Loss=1.613. TrErr=0.000%. Speed=4704 Samples/Sec.
+  mu_phi_search_max=9.289746E-06 
+  mu_phi_search_min=8.241465E-07
+  AvgnHidLayerEff=7.3. G_Phi=47113.430. G_U=0.074
+----------------------------------------------------
+- Ep#1/20 Bat#10/64. Loss=1.612. TrErr=0.000%. Speed=4393 Samples/Sec.
+  mu_phi_search_max=9.31313E-06 
+  mu_phi_search_min=8.205826E-07
+  AvgnHidLayerEff=7.3. G_Phi=48460.140. G_U=0.073
+----------------------------------------------------
+- Ep#1/20 Bat#20/64. Loss=1.573. TrErr=0.000%. Speed=4558 Samples/Sec.
+  mu_phi_search_max=9.381642E-06 
+  mu_phi_search_min=5.470176E-07
+  AvgnHidLayerEff=7.3. G_Phi=54276.170. G_U=0.033
+----------------------------------------------------
+- Ep#1/20 Bat#30/64. Loss=1.520. TrErr=0.000%. Speed=4646 Samples/Sec.
+  mu_phi_search_max=8.651048E-06 
+  mu_phi_search_min=4.075708E-07
+  AvgnHidLayerEff=7.3. G_Phi=14214.320. G_U=0.053
+----------------------------------------------------
+- Ep#1/20 Bat#40/64. Loss=1.489. TrErr=0.000%. Speed=4723 Samples/Sec.
+  mu_phi_search_max=7.4281E-06 
+  mu_phi_search_min=3.520595E-07
+  AvgnHidLayerEff=7.3. G_Phi=20832.860. G_U=0.033
+----------------------------------------------------
+- Ep#1/20 Bat#50/64. Loss=1.464. TrErr=0.000%. Speed=4744 Samples/Sec.
+  mu_phi_search_max=6.256266E-06 
+  mu_phi_search_min=3.224147E-07
+  AvgnHidLayerEff=7.3. G_Phi=167989.500. G_U=0.131
+----------------------------------------------------
+- Ep#1/20 Bat#60/64. Loss=1.447. TrErr=0.000%. Speed=4755 Samples/Sec.
+  mu_phi_search_max=5.355206E-06 
+  mu_phi_search_min=3.077536E-07
+  AvgnHidLayerEff=7.3. G_Phi=248742.600. G_U=0.177
+----------------------------------------------------
+- Ep#2/20 Bat#10/64. Loss=1.434. TrErr=0.000%. Speed=4914 Samples/Sec.
+  mu_phi_search_max=5.051551E-06 
+  mu_phi_search_min=2.788826E-07
+  AvgnHidLayerEff=7.4. G_Phi=86856.690. G_U=0.048
+----------------------------------------------------
+- Ep#2/20 Bat#20/64. Loss=1.418. TrErr=0.000%. Speed=4851 Samples/Sec.
+  mu_phi_search_max=5.044767E-06 
+  mu_phi_search_min=2.924565E-07
+  AvgnHidLayerEff=7.4. G_Phi=82562.080. G_U=0.079
+----------------------------------------------------
+- Ep#2/20 Bat#30/64. Loss=1.403. TrErr=0.000%. Speed=4865 Samples/Sec.
+  mu_phi_search_max=4.540539E-06 
+  mu_phi_search_min=2.722324E-07
+  AvgnHidLayerEff=7.4. G_Phi=279372.300. G_U=0.212
+----------------------------------------------------
+- Ep#2/20 Bat#40/64. Loss=1.389. TrErr=0.000%. Speed=4810 Samples/Sec.
+  mu_phi_search_max=3.907748E-06 
+  mu_phi_search_min=2.716607E-07
+  AvgnHidLayerEff=7.4. G_Phi=276802.500. G_U=0.205
+----------------------------------------------------
+- Ep#2/20 Bat#50/64. Loss=1.377. TrErr=0.000%. Speed=4797 Samples/Sec.
+  mu_phi_search_max=3.483788E-06 
+  mu_phi_search_min=2.605629E-07
+  AvgnHidLayerEff=7.4. G_Phi=193541.000. G_U=0.106
+----------------------------------------------------
+- Ep#2/20 Bat#60/64. Loss=1.367. TrErr=0.000%. Speed=4798 Samples/Sec.
+  mu_phi_search_max=3.122399E-06 
+  mu_phi_search_min=2.576063E-07
+  AvgnHidLayerEff=7.4. G_Phi=208266.500. G_U=0.142
+----------------------------------------------------
+- Ep#3/20 Bat#10/64. Loss=1.359. TrErr=0.000%. Speed=4925 Samples/Sec.
+  mu_phi_search_max=2.939734E-06 
+  mu_phi_search_min=2.436587E-07
+  AvgnHidLayerEff=7.4. G_Phi=46911.000. G_U=0.020
+----------------------------------------------------
+- Ep#3/20 Bat#20/64. Loss=1.348. TrErr=0.000%. Speed=4955 Samples/Sec.
+  mu_phi_search_max=2.963133E-06 
+  mu_phi_search_min=2.507756E-07
+  AvgnHidLayerEff=7.4. G_Phi=84239.650. G_U=0.060
+----------------------------------------------------
+- Ep#3/20 Bat#30/64. Loss=1.338. TrErr=0.000%. Speed=4932 Samples/Sec.
+  mu_phi_search_max=2.806399E-06 
+  mu_phi_search_min=2.424966E-07
+  AvgnHidLayerEff=7.4. G_Phi=291985.600. G_U=0.193
+----------------------------------------------------
+- Ep#3/20 Bat#40/64. Loss=1.327. TrErr=0.000%. Speed=4866 Samples/Sec.
+  mu_phi_search_max=2.662121E-06 
+  mu_phi_search_min=2.475286E-07
+  AvgnHidLayerEff=7.4. G_Phi=99534.840. G_U=0.056
+----------------------------------------------------
+- Ep#3/20 Bat#50/64. Loss=1.318. TrErr=0.000%. Speed=4896 Samples/Sec.
+  mu_phi_search_max=2.567396E-06 
+  mu_phi_search_min=2.468317E-07
+  AvgnHidLayerEff=7.4. G_Phi=319356.500. G_U=0.136
+----------------------------------------------------
+- Ep#3/20 Bat#60/64. Loss=1.311. TrErr=0.000%. Speed=4888 Samples/Sec.
+  mu_phi_search_max=2.385405E-06 
+  mu_phi_search_min=2.41981E-07
+  AvgnHidLayerEff=7.4. G_Phi=156650.100. G_U=0.099
+----------------------------------------------------
+- Ep#4/20 Bat#10/64. Loss=1.305. TrErr=0.000%. Speed=4886 Samples/Sec.
+  mu_phi_search_max=2.154635E-06 
+  mu_phi_search_min=2.298759E-07
+  AvgnHidLayerEff=7.4. G_Phi=50878.640. G_U=0.056
+----------------------------------------------------
+- Ep#4/20 Bat#20/64. Loss=1.297. TrErr=0.000%. Speed=4910 Samples/Sec.
+  mu_phi_search_max=2.149778E-06 
+  mu_phi_search_min=2.336526E-07
+  AvgnHidLayerEff=7.4. G_Phi=146034.600. G_U=0.040
+----------------------------------------------------
+- Ep#4/20 Bat#30/64. Loss=1.289. TrErr=0.000%. Speed=4922 Samples/Sec.
+  mu_phi_search_max=2.055592E-06 
+  mu_phi_search_min=2.302067E-07
+  AvgnHidLayerEff=7.4. G_Phi=209310.000. G_U=0.118
+----------------------------------------------------
+- Ep#4/20 Bat#40/64. Loss=1.282. TrErr=0.000%. Speed=4882 Samples/Sec.
+  mu_phi_search_max=1.959674E-06 
+  mu_phi_search_min=2.280009E-07
+  AvgnHidLayerEff=7.4. G_Phi=92198.660. G_U=0.041
+----------------------------------------------------
+- Ep#4/20 Bat#50/64. Loss=1.274. TrErr=0.000%. Speed=4901 Samples/Sec.
+  mu_phi_search_max=1.945993E-06 
+  mu_phi_search_min=2.276178E-07
+  AvgnHidLayerEff=7.4. G_Phi=251958.900. G_U=0.110
+----------------------------------------------------
+- Ep#4/20 Bat#60/64. Loss=1.269. TrErr=0.000%. Speed=4923 Samples/Sec.
+  mu_phi_search_max=1.87491E-06 
+  mu_phi_search_min=2.265027E-07
+  AvgnHidLayerEff=7.4. G_Phi=138792.900. G_U=0.083
+----------------------------------------------------
+- Ep#5/20 Bat#10/64. Loss=1.263. TrErr=0.000%. Speed=4798 Samples/Sec.
+  mu_phi_search_max=1.790314E-06 
+  mu_phi_search_min=2.189016E-07
+  AvgnHidLayerEff=7.4. G_Phi=104856.500. G_U=0.043
+----------------------------------------------------
+- Ep#1/4 Bat#10/64. Loss=1.612. TrErr=0.000%. Speed=4679 Samples/Sec.
+  mu_phi_search_max=9.31313E-06 
+  mu_phi_search_min=8.205826E-07
+  AvgnHidLayerEff=7.3. G_Phi=48460.140. G_U=0.073
+----------------------------------------------------
+- Ep#1/4 Bat#20/64. Loss=1.573. TrErr=0.000%. Speed=4771 Samples/Sec.
+  mu_phi_search_max=9.381642E-06 
+  mu_phi_search_min=5.470176E-07
+  AvgnHidLayerEff=7.3. G_Phi=54276.170. G_U=0.033
+----------------------------------------------------
+- Ep#1/4 Bat#30/64. Loss=1.520. TrErr=0.000%. Speed=4769 Samples/Sec.
+  mu_phi_search_max=8.651048E-06 
+  mu_phi_search_min=4.075708E-07
+  AvgnHidLayerEff=7.3. G_Phi=14214.320. G_U=0.053
+----------------------------------------------------
+- Ep#1/4 Bat#40/64. Loss=1.489. TrErr=0.000%. Speed=4761 Samples/Sec.
+  mu_phi_search_max=7.4281E-06 
+  mu_phi_search_min=3.520595E-07
+  AvgnHidLayerEff=7.3. G_Phi=20832.860. G_U=0.033
+----------------------------------------------------
+- Ep#1/4 Bat#50/64. Loss=1.464. TrErr=0.000%. Speed=4806 Samples/Sec.
+  mu_phi_search_max=6.256266E-06 
+  mu_phi_search_min=3.224147E-07
+  AvgnHidLayerEff=7.3. G_Phi=167989.500. G_U=0.131
+----------------------------------------------------
+- Ep#1/4 Bat#60/64. Loss=1.447. TrErr=0.000%. Speed=4817 Samples/Sec.
+  mu_phi_search_max=5.355206E-06 
+  mu_phi_search_min=3.077536E-07
+  AvgnHidLayerEff=7.3. G_Phi=248742.600. G_U=0.177
+----------------------------------------------------
+- Ep#2/4 Bat#10/64. Loss=1.434. TrErr=0.000%. Speed=4797 Samples/Sec.
+  mu_phi_search_max=5.051551E-06 
+  mu_phi_search_min=2.788826E-07
+  AvgnHidLayerEff=7.4. G_Phi=86856.690. G_U=0.048
+----------------------------------------------------
+- Ep#2/4 Bat#20/64. Loss=1.418. TrErr=0.000%. Speed=4807 Samples/Sec.
+  mu_phi_search_max=5.044767E-06 
+  mu_phi_search_min=2.924565E-07
+  AvgnHidLayerEff=7.4. G_Phi=82562.080. G_U=0.079
+----------------------------------------------------
+- Ep#2/4 Bat#30/64. Loss=1.403. TrErr=0.000%. Speed=4803 Samples/Sec.
+  mu_phi_search_max=4.540539E-06 
+  mu_phi_search_min=2.722324E-07
+  AvgnHidLayerEff=7.4. G_Phi=279372.300. G_U=0.212
+----------------------------------------------------
+- Ep#2/4 Bat#40/64. Loss=1.389. TrErr=0.000%. Speed=4794 Samples/Sec.
+  mu_phi_search_max=3.907748E-06 
+  mu_phi_search_min=2.716607E-07
+  AvgnHidLayerEff=7.4. G_Phi=276802.500. G_U=0.205
+----------------------------------------------------
+- Ep#2/4 Bat#50/64. Loss=1.377. TrErr=0.000%. Speed=4801 Samples/Sec.
+  mu_phi_search_max=3.483788E-06 
+  mu_phi_search_min=2.605629E-07
+  AvgnHidLayerEff=7.4. G_Phi=193541.000. G_U=0.106
+----------------------------------------------------
+- Ep#2/4 Bat#60/64. Loss=1.367. TrErr=0.000%. Speed=4772 Samples/Sec.
+  mu_phi_search_max=3.122399E-06 
+  mu_phi_search_min=2.576063E-07
+  AvgnHidLayerEff=7.4. G_Phi=208266.500. G_U=0.142
+----------------------------------------------------
+- Ep#3/4 Bat#10/64. Loss=1.359. TrErr=0.000%. Speed=4505 Samples/Sec.
+  mu_phi_search_max=2.939734E-06 
+  mu_phi_search_min=2.436587E-07
+  AvgnHidLayerEff=7.4. G_Phi=46911.000. G_U=0.020
+----------------------------------------------------
+- Ep#3/4 Bat#20/64. Loss=1.348. TrErr=0.000%. Speed=4362 Samples/Sec.
+  mu_phi_search_max=2.963133E-06 
+  mu_phi_search_min=2.507756E-07
+  AvgnHidLayerEff=7.4. G_Phi=84239.650. G_U=0.060
+----------------------------------------------------
+- Ep#3/4 Bat#30/64. Loss=1.338. TrErr=0.000%. Speed=4388 Samples/Sec.
+  mu_phi_search_max=2.806399E-06 
+  mu_phi_search_min=2.424966E-07
+  AvgnHidLayerEff=7.4. G_Phi=291985.600. G_U=0.193
+----------------------------------------------------
+- Ep#3/4 Bat#40/64. Loss=1.327. TrErr=0.000%. Speed=4345 Samples/Sec.
+  mu_phi_search_max=2.662121E-06 
+  mu_phi_search_min=2.475286E-07
+  AvgnHidLayerEff=7.4. G_Phi=99534.840. G_U=0.056
+----------------------------------------------------
+- Ep#3/4 Bat#50/64. Loss=1.318. TrErr=0.000%. Speed=4428 Samples/Sec.
+  mu_phi_search_max=2.567396E-06 
+  mu_phi_search_min=2.468317E-07
+  AvgnHidLayerEff=7.4. G_Phi=319356.500. G_U=0.136
+----------------------------------------------------
+- Ep#3/4 Bat#60/64. Loss=1.311. TrErr=0.000%. Speed=4433 Samples/Sec.
+  mu_phi_search_max=2.385405E-06 
+  mu_phi_search_min=2.41981E-07
+  AvgnHidLayerEff=7.4. G_Phi=156650.100. G_U=0.099
+----------------------------------------------------
+- Ep#4/4 Bat#10/64. Loss=1.305. TrErr=0.000%. Speed=4714 Samples/Sec.
+  mu_phi_search_max=2.154635E-06 
+  mu_phi_search_min=2.298759E-07
+  AvgnHidLayerEff=7.4. G_Phi=50878.640. G_U=0.056
+----------------------------------------------------
+- Ep#4/4 Bat#20/64. Loss=1.297. TrErr=0.000%. Speed=4719 Samples/Sec.
+  mu_phi_search_max=2.149778E-06 
+  mu_phi_search_min=2.336526E-07
+  AvgnHidLayerEff=7.4. G_Phi=146034.600. G_U=0.040
+----------------------------------------------------
+- Ep#4/4 Bat#30/64. Loss=1.289. TrErr=0.000%. Speed=4698 Samples/Sec.
+  mu_phi_search_max=2.055592E-06 
+  mu_phi_search_min=2.302067E-07
+  AvgnHidLayerEff=7.4. G_Phi=209310.000. G_U=0.118
+----------------------------------------------------
+- Ep#4/4 Bat#40/64. Loss=1.282. TrErr=0.000%. Speed=4657 Samples/Sec.
+  mu_phi_search_max=1.959674E-06 
+  mu_phi_search_min=2.280009E-07
+  AvgnHidLayerEff=7.4. G_Phi=92198.660. G_U=0.041
+----------------------------------------------------
+- Ep#4/4 Bat#50/64. Loss=1.274. TrErr=0.000%. Speed=4655 Samples/Sec.
+  mu_phi_search_max=1.945993E-06 
+  mu_phi_search_min=2.276178E-07
+  AvgnHidLayerEff=7.4. G_Phi=251958.900. G_U=0.110
+----------------------------------------------------
+- Ep#4/4 Bat#60/64. Loss=1.269. TrErr=0.000%. Speed=4626 Samples/Sec.
+  mu_phi_search_max=1.87491E-06 
+  mu_phi_search_min=2.265027E-07
+  AvgnHidLayerEff=7.4. G_Phi=138792.900. G_U=0.083
+----------------------------------------------------
+- Ep#1/4 Bat#10/64. Loss=1.612. TrErr=0.000%. Speed=4520 Samples/Sec.
+  mu_phi_search_max=9.31313E-06 
+  mu_phi_search_min=8.205826E-07
+  AvgnHidLayerEff=7.3. G_Phi=48460.140. G_U=0.073
+----------------------------------------------------
+- Ep#1/4 Bat#20/64. Loss=1.573. TrErr=0.000%. Speed=4692 Samples/Sec.
+  mu_phi_search_max=9.381642E-06 
+  mu_phi_search_min=5.470176E-07
+  AvgnHidLayerEff=7.3. G_Phi=54276.170. G_U=0.033
+----------------------------------------------------
+- Ep#1/4 Bat#30/64. Loss=1.520. TrErr=0.000%. Speed=4756 Samples/Sec.
+  mu_phi_search_max=8.651048E-06 
+  mu_phi_search_min=4.075708E-07
+  AvgnHidLayerEff=7.3. G_Phi=14214.320. G_U=0.053
+----------------------------------------------------
+- Ep#1/4 Bat#40/64. Loss=1.489. TrErr=0.000%. Speed=4796 Samples/Sec.
+  mu_phi_search_max=7.4281E-06 
+  mu_phi_search_min=3.520595E-07
+  AvgnHidLayerEff=7.3. G_Phi=20832.860. G_U=0.033
+----------------------------------------------------
+- Ep#1/4 Bat#50/64. Loss=1.464. TrErr=0.000%. Speed=4833 Samples/Sec.
+  mu_phi_search_max=6.256266E-06 
+  mu_phi_search_min=3.224147E-07
+  AvgnHidLayerEff=7.3. G_Phi=167989.500. G_U=0.131
+----------------------------------------------------
+- Ep#1/4 Bat#60/64. Loss=1.447. TrErr=0.000%. Speed=4805 Samples/Sec.
+  mu_phi_search_max=5.355206E-06 
+  mu_phi_search_min=3.077536E-07
+  AvgnHidLayerEff=7.3. G_Phi=248742.600. G_U=0.177
+----------------------------------------------------
+- Ep#2/4 Bat#10/64. Loss=1.434. TrErr=0.000%. Speed=4680 Samples/Sec.
+  mu_phi_search_max=5.051551E-06 
+  mu_phi_search_min=2.788826E-07
+  AvgnHidLayerEff=7.4. G_Phi=86856.690. G_U=0.048
+----------------------------------------------------
+- Ep#2/4 Bat#20/64. Loss=1.418. TrErr=0.000%. Speed=4687 Samples/Sec.
+  mu_phi_search_max=5.044767E-06 
+  mu_phi_search_min=2.924565E-07
+  AvgnHidLayerEff=7.4. G_Phi=82562.080. G_U=0.079
+----------------------------------------------------
+- Ep#2/4 Bat#30/64. Loss=1.403. TrErr=0.000%. Speed=4698 Samples/Sec.
+  mu_phi_search_max=4.540539E-06 
+  mu_phi_search_min=2.722324E-07
+  AvgnHidLayerEff=7.4. G_Phi=279372.300. G_U=0.212
+----------------------------------------------------
+- Ep#2/4 Bat#40/64. Loss=1.389. TrErr=0.000%. Speed=4742 Samples/Sec.
+  mu_phi_search_max=3.907748E-06 
+  mu_phi_search_min=2.716607E-07
+  AvgnHidLayerEff=7.4. G_Phi=276802.500. G_U=0.205
+----------------------------------------------------
+- Ep#2/4 Bat#50/64. Loss=1.377. TrErr=0.000%. Speed=4742 Samples/Sec.
+  mu_phi_search_max=3.483788E-06 
+  mu_phi_search_min=2.605629E-07
+  AvgnHidLayerEff=7.4. G_Phi=193541.000. G_U=0.106
+----------------------------------------------------
+- Ep#2/4 Bat#60/64. Loss=1.367. TrErr=0.000%. Speed=4719 Samples/Sec.
+  mu_phi_search_max=3.122399E-06 
+  mu_phi_search_min=2.576063E-07
+  AvgnHidLayerEff=7.4. G_Phi=208266.500. G_U=0.142
+----------------------------------------------------
+- Ep#3/4 Bat#10/64. Loss=1.359. TrErr=0.000%. Speed=4227 Samples/Sec.
+  mu_phi_search_max=2.939734E-06 
+  mu_phi_search_min=2.436587E-07
+  AvgnHidLayerEff=7.4. G_Phi=46911.000. G_U=0.020
+----------------------------------------------------
+- Ep#3/4 Bat#20/64. Loss=1.348. TrErr=0.000%. Speed=4323 Samples/Sec.
+  mu_phi_search_max=2.963133E-06 
+  mu_phi_search_min=2.507756E-07
+  AvgnHidLayerEff=7.4. G_Phi=84239.650. G_U=0.060
+----------------------------------------------------
+- Ep#3/4 Bat#30/64. Loss=1.338. TrErr=0.000%. Speed=4351 Samples/Sec.
+  mu_phi_search_max=2.806399E-06 
+  mu_phi_search_min=2.424966E-07
+  AvgnHidLayerEff=7.4. G_Phi=291985.600. G_U=0.193
+----------------------------------------------------
+- Ep#3/4 Bat#40/64. Loss=1.327. TrErr=0.000%. Speed=4292 Samples/Sec.
+  mu_phi_search_max=2.662121E-06 
+  mu_phi_search_min=2.475286E-07
+  AvgnHidLayerEff=7.4. G_Phi=99534.840. G_U=0.056
+----------------------------------------------------
+- Ep#3/4 Bat#50/64. Loss=1.318. TrErr=0.000%. Speed=4276 Samples/Sec.
+  mu_phi_search_max=2.567396E-06 
+  mu_phi_search_min=2.468317E-07
+  AvgnHidLayerEff=7.4. G_Phi=319356.500. G_U=0.136
+----------------------------------------------------
+- Ep#3/4 Bat#60/64. Loss=1.311. TrErr=0.000%. Speed=4290 Samples/Sec.
+  mu_phi_search_max=2.385405E-06 
+  mu_phi_search_min=2.41981E-07
+  AvgnHidLayerEff=7.4. G_Phi=156650.100. G_U=0.099
+----------------------------------------------------
+- Ep#4/4 Bat#10/64. Loss=1.305. TrErr=0.000%. Speed=4111 Samples/Sec.
+  mu_phi_search_max=2.154635E-06 
+  mu_phi_search_min=2.298759E-07
+  AvgnHidLayerEff=7.4. G_Phi=50878.640. G_U=0.056
+----------------------------------------------------
+- Ep#4/4 Bat#20/64. Loss=1.297. TrErr=0.000%. Speed=4248 Samples/Sec.
+  mu_phi_search_max=2.149778E-06 
+  mu_phi_search_min=2.336526E-07
+  AvgnHidLayerEff=7.4. G_Phi=146034.600. G_U=0.040
+----------------------------------------------------
+- Ep#4/4 Bat#30/64. Loss=1.289. TrErr=0.000%. Speed=4357 Samples/Sec.
+  mu_phi_search_max=2.055592E-06 
+  mu_phi_search_min=2.302067E-07
+  AvgnHidLayerEff=7.4. G_Phi=209310.000. G_U=0.118
+----------------------------------------------------
+- Ep#4/4 Bat#40/64. Loss=1.282. TrErr=0.000%. Speed=4339 Samples/Sec.
+  mu_phi_search_max=1.959674E-06 
+  mu_phi_search_min=2.280009E-07
+  AvgnHidLayerEff=7.4. G_Phi=92198.660. G_U=0.041
+----------------------------------------------------
+- Ep#4/4 Bat#50/64. Loss=1.274. TrErr=0.000%. Speed=4334 Samples/Sec.
+  mu_phi_search_max=1.945993E-06 
+  mu_phi_search_min=2.276178E-07
+  AvgnHidLayerEff=7.4. G_Phi=251958.900. G_U=0.110
+----------------------------------------------------
+- Ep#4/4 Bat#60/64. Loss=1.269. TrErr=0.000%. Speed=4396 Samples/Sec.
+  mu_phi_search_max=1.87491E-06 
+  mu_phi_search_min=2.265027E-07
+  AvgnHidLayerEff=7.4. G_Phi=138792.900. G_U=0.083
+----------------------------------------------------
+- Ep#1/4 Bat#10/64. Loss=1.598. TrErr=0.000%. Speed=4425 Samples/Sec.
+  mu_phi_search_max=1.394685E-06 
+  mu_phi_search_min=3.495288E-07
+  AvgnHidLayerEff=7.8. G_Phi=16369.870. G_U=0.042
+----------------------------------------------------
+- Ep#1/4 Bat#20/64. Loss=1.578. TrErr=0.000%. Speed=4561 Samples/Sec.
+  mu_phi_search_max=1.235724E-06 
+  mu_phi_search_min=2.800963E-07
+  AvgnHidLayerEff=7.8. G_Phi=29684.190. G_U=0.073
+----------------------------------------------------
+- Ep#1/4 Bat#30/64. Loss=1.588. TrErr=0.000%. Speed=4606 Samples/Sec.
+  mu_phi_search_max=9.839921E-07 
+  mu_phi_search_min=1.871193E-07
+  AvgnHidLayerEff=7.8. G_Phi=63580.030. G_U=0.090
+----------------------------------------------------
+- Ep#1/4 Bat#40/64. Loss=1.585. TrErr=0.000%. Speed=4611 Samples/Sec.
+  mu_phi_search_max=8.889013E-07 
+  mu_phi_search_min=1.370772E-07
+  AvgnHidLayerEff=7.8. G_Phi=42023.010. G_U=0.035
+----------------------------------------------------
+- Ep#1/4 Bat#50/64. Loss=1.576. TrErr=0.000%. Speed=4605 Samples/Sec.
+  mu_phi_search_max=8.298529E-07 
+  mu_phi_search_min=1.254157E-07
+  AvgnHidLayerEff=7.8. G_Phi=22002.090. G_U=0.071
+----------------------------------------------------
+- Ep#1/4 Bat#60/64. Loss=1.576. TrErr=0.000%. Speed=4628 Samples/Sec.
+  mu_phi_search_max=7.6924E-07 
+  mu_phi_search_min=1.106973E-07
+  AvgnHidLayerEff=7.7. G_Phi=52664.240. G_U=0.084
+----------------------------------------------------
+- Ep#2/4 Bat#10/64. Loss=1.569. TrErr=0.000%. Speed=4376 Samples/Sec.
+  mu_phi_search_max=7.518381E-07 
+  mu_phi_search_min=1.005684E-07
+  AvgnHidLayerEff=7.7. G_Phi=37732.970. G_U=0.025
+----------------------------------------------------
+- Ep#2/4 Bat#20/64. Loss=1.564. TrErr=0.000%. Speed=4443 Samples/Sec.
+  mu_phi_search_max=7.387695E-07 
+  mu_phi_search_min=9.759661E-08
+  AvgnHidLayerEff=7.7. G_Phi=27897.150. G_U=0.009
+----------------------------------------------------
+- Ep#2/4 Bat#30/64. Loss=1.558. TrErr=0.000%. Speed=4444 Samples/Sec.
+  mu_phi_search_max=7.323275E-07 
+  mu_phi_search_min=9.200551E-08
+  AvgnHidLayerEff=7.7. G_Phi=32197.800. G_U=0.033
+----------------------------------------------------
+- Ep#2/4 Bat#40/64. Loss=1.553. TrErr=0.000%. Speed=4451 Samples/Sec.
+  mu_phi_search_max=7.190415E-07 
+  mu_phi_search_min=8.552455E-08
+  AvgnHidLayerEff=7.8. G_Phi=86319.160. G_U=0.083
+----------------------------------------------------
+- Ep#2/4 Bat#50/64. Loss=1.546. TrErr=0.000%. Speed=4444 Samples/Sec.
+  mu_phi_search_max=7.140009E-07 
+  mu_phi_search_min=8.296433E-08
+  AvgnHidLayerEff=7.8. G_Phi=65826.200. G_U=0.041
+----------------------------------------------------
+- Ep#2/4 Bat#60/64. Loss=1.539. TrErr=0.000%. Speed=4505 Samples/Sec.
+  mu_phi_search_max=7.122504E-07 
+  mu_phi_search_min=7.916751E-08
+  AvgnHidLayerEff=7.8. G_Phi=46702.610. G_U=0.044
+----------------------------------------------------
+- Ep#3/4 Bat#10/64. Loss=1.531. TrErr=0.000%. Speed=4362 Samples/Sec.
+  mu_phi_search_max=6.967663E-07 
+  mu_phi_search_min=7.538166E-08
+  AvgnHidLayerEff=7.7. G_Phi=54098.680. G_U=0.034
+----------------------------------------------------
+- Ep#3/4 Bat#20/64. Loss=1.525. TrErr=0.000%. Speed=4412 Samples/Sec.
+  mu_phi_search_max=6.900352E-07 
+  mu_phi_search_min=7.378538E-08
+  AvgnHidLayerEff=7.7. G_Phi=83224.910. G_U=0.040
+----------------------------------------------------
+- Ep#3/4 Bat#30/64. Loss=1.519. TrErr=0.000%. Speed=4425 Samples/Sec.
+  mu_phi_search_max=6.835013E-07 
+  mu_phi_search_min=7.264796E-08
+  AvgnHidLayerEff=7.7. G_Phi=85354.060. G_U=0.025
+----------------------------------------------------
+- Ep#3/4 Bat#40/64. Loss=1.515. TrErr=0.000%. Speed=4424 Samples/Sec.
+  mu_phi_search_max=6.759435E-07 
+  mu_phi_search_min=6.970705E-08
+  AvgnHidLayerEff=7.7. G_Phi=138853.600. G_U=0.122
+----------------------------------------------------
+- Ep#3/4 Bat#50/64. Loss=1.512. TrErr=0.000%. Speed=4407 Samples/Sec.
+  mu_phi_search_max=6.768767E-07 
+  mu_phi_search_min=6.776138E-08
+  AvgnHidLayerEff=7.7. G_Phi=31870.710. G_U=0.020
+----------------------------------------------------
+- Ep#3/4 Bat#60/64. Loss=1.507. TrErr=0.000%. Speed=4409 Samples/Sec.
+  mu_phi_search_max=6.739659E-07 
+  mu_phi_search_min=6.62304E-08
+  AvgnHidLayerEff=7.7. G_Phi=43401.620. G_U=0.049
+----------------------------------------------------
+- Ep#4/4 Bat#10/64. Loss=1.501. TrErr=0.000%. Speed=4391 Samples/Sec.
+  mu_phi_search_max=6.56124E-07 
+  mu_phi_search_min=6.402308E-08
+  AvgnHidLayerEff=7.7. G_Phi=39585.910. G_U=0.028
+----------------------------------------------------
+- Ep#4/4 Bat#20/64. Loss=1.497. TrErr=0.000%. Speed=4411 Samples/Sec.
+  mu_phi_search_max=6.524392E-07 
+  mu_phi_search_min=6.265931E-08
+  AvgnHidLayerEff=7.7. G_Phi=74798.450. G_U=0.056
+----------------------------------------------------
+- Ep#4/4 Bat#30/64. Loss=1.492. TrErr=0.000%. Speed=4441 Samples/Sec.
+  mu_phi_search_max=6.501162E-07 
+  mu_phi_search_min=6.222616E-08
+  AvgnHidLayerEff=7.7. G_Phi=49739.210. G_U=0.009
+----------------------------------------------------
+- Ep#4/4 Bat#40/64. Loss=1.486. TrErr=0.000%. Speed=4396 Samples/Sec.
+  mu_phi_search_max=6.465138E-07 
+  mu_phi_search_min=6.030373E-08
+  AvgnHidLayerEff=7.7. G_Phi=102689.400. G_U=0.137
+----------------------------------------------------
+- Ep#4/4 Bat#50/64. Loss=1.481. TrErr=0.000%. Speed=4339 Samples/Sec.
+  mu_phi_search_max=6.457342E-07 
+  mu_phi_search_min=5.948879E-08
+  AvgnHidLayerEff=7.7. G_Phi=36017.290. G_U=0.017
+----------------------------------------------------
+- Ep#4/4 Bat#60/64. Loss=1.476. TrErr=0.000%. Speed=4270 Samples/Sec.
+  mu_phi_search_max=6.487562E-07 
+  mu_phi_search_min=5.926102E-08
+  AvgnHidLayerEff=7.7. G_Phi=73097.320. G_U=0.049
+----------------------------------------------------

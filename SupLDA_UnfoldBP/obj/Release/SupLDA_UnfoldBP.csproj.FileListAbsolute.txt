@@ -1,0 +1,8 @@
+G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\SupLDA_UnfoldBP\bin\Release\SupLDA_UnfoldBP.exe.config
+G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\SupLDA_UnfoldBP\bin\Release\SupLDA_UnfoldBP.exe
+G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\SupLDA_UnfoldBP\bin\Release\SupLDA_UnfoldBP.pdb
+G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\SupLDA_UnfoldBP\bin\Release\UnsupLDA_UnfoldBP.exe
+G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\SupLDA_UnfoldBP\bin\Release\UnsupLDA_UnfoldBP.pdb
+G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\SupLDA_UnfoldBP\obj\Release\SupLDA_UnfoldBP.csprojResolveAssemblyReference.cache
+G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\SupLDA_UnfoldBP\obj\Release\SupLDA_UnfoldBP.exe
+G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\SupLDA_UnfoldBP\obj\Release\SupLDA_UnfoldBP.pdb
