@@ -21,13 +21,21 @@ For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Th
 The data folder is bp-lda/data_AmazonMovieReview_1percent/, in which you can find label files and feature files for train/test, respectively.
 
 #### Command
-alpha = 1.001:
+Supervised (alpha = 1.001):
 
-BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --beta 1.0001 --nEpoch 50 --BatchSize 1000 --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
+BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --nEpoch 50 --BatchSize 1000 --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
 
-alpha = 0.1:
+Supervised (alpha = 0.1):
 
-BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 0.1 --beta 1.0001 --nEpoch 50 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.0001 --mu_U 1 --nSamplesPerDisplay 10000 --nEpochPerSave 1 --nEpochPerTest 1 --nEpochPerDump 5 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 0.01 --DebugLevel high --flag_AdaptivenHidLayer true --flag_RunningAvg true
+BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 0.1 --nEpoch 50 --BatchSize 1000 --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 0.01 --DebugLevel high --flag_AdaptivenHidLayer true --flag_RunningAvg true
+
+Unsupervised (alpha = 1.001):
+
+BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 1.001 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --BatchSize_Test 10000 --flag_DumpFeature true --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
+
+Unsupervised (alpha = 0.1):
+
+
 
 #### Output files (if you follow the above example)
 result_Voc5000.model.Phi and result_Voc5000.model.U: model files with model parameters Phi and U, as described in the paper
