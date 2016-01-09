@@ -34,7 +34,7 @@ result_Voc5000.model.Phi and result_Voc5000.model.U: model files with model para
 
 result_Voc5000.perf and result_Voc5000.testscore: performance file and test score file
 
-### Here is a brief explanation on command line arguments:
+#### Here is a brief explanation on command line arguments:
 
 --nHid: Number of topics
 
