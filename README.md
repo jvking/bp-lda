@@ -23,7 +23,7 @@ The data folder is bp-lda/data_AmazonMovieReview_1percent/, in which you can fin
 #### Command
 alpha = 1.001:
 
-BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --beta 1.0001 --nEpoch 50 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
+BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --beta 1.0001 --nEpoch 50 --BatchSize 1000 --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
 
 alpha = 0.1:
 
