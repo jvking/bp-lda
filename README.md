@@ -12,7 +12,7 @@ bp-lda/SupLDA_UnfoldBP/bin/x64/Release/UnsupLDA_UnfoldBP.exe # for unsupervised 
 
 For Windows users, simply open a command prompt window and run "SupLDA_UnfoldBP.exe" or "UnsupLDA_UnfoldBP.exe"
 
-For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Then, open a terminal and run "mono SupLDA_UnfoldBP.exe" or "mono UnsupLDA_UnfoldBP.exe"
+For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Then, open a terminal and run "mono BP_sLDA.exe" or "mono BP_LDA.exe"
 
 ### Regression demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
 #### Data
@@ -23,11 +23,11 @@ The data folder is bp-lda/data_AmazonMovieReview_1percent/, in which you can fin
 #### Command
 alpha = 1.001:
 
-SupLDA_UnfoldBP.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --beta 1.0001 --nEpoch 50 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.01 --mu_U 1 --nSamplesPerDisplay 10000 --nEpochPerSave 1 --nEpochPerTest 1 --nEpochPerDump 5 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 1 --DebugLevel high --flag_AdaptivenHidLayer false --flag_RunningAvg true
+BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --beta 1.0001 --nEpoch 50 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
 
 alpha = 0.1:
 
-SupLDA_UnfoldBP.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 0.1 --beta 1.0001 --nEpoch 50 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.0001 --mu_U 1 --nSamplesPerDisplay 10000 --nEpochPerSave 1 --nEpochPerTest 1 --nEpochPerDump 5 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 0.01 --DebugLevel high --flag_AdaptivenHidLayer true --flag_RunningAvg true
+BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 0.1 --beta 1.0001 --nEpoch 50 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.0001 --mu_U 1 --nSamplesPerDisplay 10000 --nEpochPerSave 1 --nEpochPerTest 1 --nEpochPerDump 5 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 0.01 --DebugLevel high --flag_AdaptivenHidLayer true --flag_RunningAvg true
 
 #### Output files (if you follow the above example)
 result_Voc5000.model.Phi and result_Voc5000.model.U: model files with model parameters Phi and U, as described in the paper
