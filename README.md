@@ -17,7 +17,7 @@ For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Th
 # Regression demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
 The data folder is bp-lda/data_AmazonMovieReview_1percent/, in which you can find label files and feature files for train/test, respectively.
 
-SupLDA_UnfoldBP.exe --nHid 5 --nHidLayer 10 --nInput 5000 --flag_TiedParam true --nOutput 1 --OutputType linearQuad --alpha 1.001 --beta 1.0001 --nEpoch 20 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.01 --mu_U 1 --nSamplesPerDisplay 10000 --nEpochPerSave 1 --nEpochPerTest 1 --nEpochPerDump 5 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 1 --DebugLevel high --flag_AdaptivenHidLayer false --flag_RunningAvg true
+SupLDA_UnfoldBP.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --beta 1.0001 --nEpoch 20 --BatchSize 1000 --BatchSize_Test 10000 --flag_DumpFeature false --mu_Phi 0.01 --mu_U 1 --nSamplesPerDisplay 10000 --nEpochPerSave 1 --nEpochPerTest 1 --nEpochPerDump 5 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32 --T_value 1 --DebugLevel high --flag_AdaptivenHidLayer false --flag_RunningAvg true
 
 Here is a brief explanation on command line arguments:
 

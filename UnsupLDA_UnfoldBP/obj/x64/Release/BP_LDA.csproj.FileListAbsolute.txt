@@ -1,9 +1,0 @@
-G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\UnsupLDA_UnfoldBP\bin\x64\Release\UnsupLDA_UnfoldBP.exe.config
-G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\UnsupLDA_UnfoldBP\bin\x64\Release\UnsupLDA_UnfoldBP.exe
-G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\UnsupLDA_UnfoldBP\bin\x64\Release\UnsupLDA_UnfoldBP.pdb
-G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\UnsupLDA_UnfoldBP\obj\x64\Release\UnsupLDA_UnfoldBP.exe
-G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\UnsupLDA_UnfoldBP\obj\x64\Release\UnsupLDA_UnfoldBP.pdb
-G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train\UnsupLDA_UnfoldBP\obj\x64\Release\BP_LDA.csprojResolveAssemblyReference.cache
-G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train_OpenSource_NIPS2015\UnsupLDA_UnfoldBP\bin\x64\Release\UnsupLDA_UnfoldBP.exe.config
-G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train_OpenSource_NIPS2015\UnsupLDA_UnfoldBP\obj\x64\Release\UnsupLDA_UnfoldBP.exe
-G:\Code\MSR-DSSM\private\jianshuc\DeepGenerativeModel\FwLDA_Train_OpenSource_NIPS2015\UnsupLDA_UnfoldBP\obj\x64\Release\UnsupLDA_UnfoldBP.pdb
