@@ -43,9 +43,14 @@ result_Voc5000.perf and result_Voc5000.testscore: performance file and test scor
 #### Command
 Supervised (alpha = 1.001):
 
-BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 1000 --nOutput 2 --OutputType softmaxCE --alpha 1.001 --nEpoch 200 --BatchSize 1000 --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile data_MultiSent/train.label --TestLabelFile data_MultiSent/test.label --TrainInputFile data_MultiSent/train.feature --TestInputFile data_MultiSent/test.feature --ResultFile result_Voc1000 --ThreadNum 32 --MaxThreadDeg 32
+BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 1000 --nOutput 2 --OutputType softmaxCE --alpha 1.001 --nEpoch 20 --BatchSize 100 --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc1000 --ThreadNum 32 --MaxThreadDeg 32
+
+Supervised (alpha = 0.1):
+
+BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 1000 --nOutput 2 --OutputType softmaxCE --alpha 0.1 --nEpoch 20 --BatchSize 100 --mu_Phi 0.001 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc1000 --ThreadNum 32 --MaxThreadDeg 32
 
 #### Output files
+Same as the regression example.
 
 ### Unsupervised demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
 #### Data: data_AmazonMovieReview_1percent/
