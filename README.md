@@ -26,7 +26,7 @@ Raw data can be downloaded from https://snap.stanford.edu/data/web-Movies.html
 #### Command (for simplicity, we omit the paths to .exe and data files. Make sure you specify the correct paths to you executables and data files when you experiment)
 Supervised (alpha = 1.001):
 
-BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --nEpoch 50 --BatchSize 1000 --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
+    BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 1.001 --nEpoch 50 --BatchSize 1000 --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
 
 Supervised (alpha = 0.1):
 
