@@ -49,6 +49,9 @@ result_Voc5000.perf and result_Voc5000.testscore: performance file and test scor
 .feature: each line is a document in bag-of-words representation. Colon is used to delimit word index and word counts. Tab is used to delimit different words.
 
 #### Command
+Supervised (alpha = 1.005):
+
+BP_sLDA.exe --nHid 20 --nHidLayer 10 --nInput 61188 --nOutput 20 --OutputType softmaxCE --alpha 1.005 --beta 1.000001 --nEpoch 200 --BatchSize 1000 --BatchSizeSchedule 1:10,21:100,51:1000 --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainLabelFile raw_preprocNoStopWords/train.label --TestLabelFile raw_preprocNoStopWords/test.label --TrainInputFile raw_preprocNoStopWords/train.feature --TestInputFile raw_preprocNoStopWords/test.feature --ResultFile result --ThreadNum 32 --MaxThreadDeg 32
 
 #### Output files
 
