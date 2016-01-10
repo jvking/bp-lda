@@ -86,6 +86,8 @@ result_Voc5000.train.fea and result_Voc5000.test.fea: generated topic distributi
 
 --BatchSize: Minibatch size (number of documents at each mini-batch)
 
+--BatchSizeSchedule: a scheduler for setting training batch size, e.g. 1:10,2:100,11:1000 means batch size = 10 in epoch 1, switching to batch size = 100 in epoch 2, and switching to 1000 in epoch 11.
+
 --BatchSize_Test: Minibatch size for testing
 
 --flag_DumpFeature: if true, then save the topic distribution of each document. If false, then do not save
