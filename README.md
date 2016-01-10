@@ -29,14 +29,6 @@ Supervised (alpha = 0.1):
 
 BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 0.1 --nEpoch 50 --BatchSize 1000 --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
 
-Unsupervised (alpha = 1.001):
-
-BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 1.001 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --flag_DumpFeature true --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
-
-Unsupervised (alpha = 0.1):
-
-BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 0.5 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --flag_DumpFeature true --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
-
 #### Output files (if you follow the above example)
 result_Voc5000.model.Phi and result_Voc5000.model.U: model files with model parameters Phi and U, as described in the paper
 
@@ -54,6 +46,20 @@ Supervised (alpha = 1.005):
 BP_sLDA.exe --nHid 20 --nHidLayer 10 --nInput 61188 --nOutput 20 --OutputType softmaxCE --alpha 1.005 --beta 1.000001 --nEpoch 200 --BatchSize 1000 --BatchSizeSchedule 1:10,21:100,51:1000 --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainLabelFile raw_preprocNoStopWords/train.label --TestLabelFile raw_preprocNoStopWords/test.label --TrainInputFile raw_preprocNoStopWords/train.feature --TestInputFile raw_preprocNoStopWords/test.feature --ResultFile result --ThreadNum 32 --MaxThreadDeg 32
 
 #### Output files
+
+### Unsupervised demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
+#### Data: data_AmazonMovieReview_1percent/
+#### Command
+Unsupervised (alpha = 1.001):
+
+BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 1.001 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --flag_DumpFeature true --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
+
+Unsupervised (alpha = 0.1):
+
+BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 0.5 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --flag_DumpFeature true --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
+
+#### Output files:
+result_Voc5000.train.fea and result_Voc5000.test.fea: generated topic distribution vectors for each train/test documents.
 
 #### Here is a brief explanation on command line arguments:
 
