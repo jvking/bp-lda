@@ -30,7 +30,7 @@ Supervised (alpha = 1.001):
 
 Supervised (alpha = 0.1):
 
-BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 0.1 --nEpoch 50 --BatchSize 1000 --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
+    BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --nOutput 1 --OutputType linearQuad --alpha 0.1 --nEpoch 50 --BatchSize 1000 --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
 
 #### Output files (if you follow the above example)
 result_Voc5000.model.Phi and result_Voc5000.model.U: model files with model parameters Phi and U, as described in the paper
@@ -49,11 +49,11 @@ Raw data can be downloaded from https://www.cs.jhu.edu/~mdredze/datasets/sentime
 #### Command
 Supervised (alpha = 1.001):
 
-BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 1000 --nOutput 2 --OutputType softmaxCE --alpha 1.001 --nEpoch 20 --BatchSize 100 --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc1000 --ThreadNum 32 --MaxThreadDeg 32
+    BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 1000 --nOutput 2 --OutputType softmaxCE --alpha 1.001 --nEpoch 20 --BatchSize 100 --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc1000 --ThreadNum 32 --MaxThreadDeg 32
 
 Supervised (alpha = 0.1):
 
-BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 1000 --nOutput 2 --OutputType softmaxCE --alpha 0.1 --nEpoch 20 --BatchSize 100 --mu_Phi 0.001 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc1000 --ThreadNum 32 --MaxThreadDeg 32
+    BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 1000 --nOutput 2 --OutputType softmaxCE --alpha 0.1 --nEpoch 20 --BatchSize 100 --mu_Phi 0.001 --nSamplesPerDisplay 10000 --TrainLabelFile train.label --TestLabelFile test.label --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc1000 --ThreadNum 32 --MaxThreadDeg 32
 
 #### Output files
 Same as the regression example.
@@ -65,11 +65,11 @@ Same as the regression example.
 #### Command
 Unsupervised (alpha = 1.001):
 
-BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 1.001 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --flag_DumpFeature true --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
+    BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 1.001 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --flag_DumpFeature true --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
 
 Unsupervised (alpha = 0.1):
 
-BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 0.5 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --flag_DumpFeature true --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
+    BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 0.5 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --flag_DumpFeature true --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
 
 #### Output files:
 result_Voc5000.train.fea and result_Voc5000.test.fea: generated topic distribution vectors for each train/test documents.
