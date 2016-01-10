@@ -1,21 +1,21 @@
 # BP-LDA
-Backpropagation Latent Dirichlet Allocation (reimplementation of paper "End-to-end Learning of LDA by Mirror-Descent Back Propagation over a Deep Architecture" by Jianshu Chen et al.)
+Backpropagation Latent Dirichlet Allocation (a third-party reimplementation of paper "End-to-end Learning of LDA by Mirror-Descent Back Propagation over a Deep Architecture" by Jianshu Chen et al.)
 
-This paper is accepted by NIPS 2015.
+The paper is accepted by NIPS 2015.
 Link to this paper: http://papers.nips.cc/paper/5967-end-to-end-learning-of-lda-by-mirror-descent-back-propagation-over-a-deep-architecture.pdf
 
 To run the codes, there are two executables (one depends on the other). You need to copy both executables to the same working directory.
 
-bp-lda/SupLDA_UnfoldBP/bin/x64/Release/SupLDA_UnfoldBP.exe # for supervised task
+bp-lda/SupLDA_UnfoldBP/bin/x64/Release/BP_sLDA.exe # for supervised task
 
-bp-lda/SupLDA_UnfoldBP/bin/x64/Release/UnsupLDA_UnfoldBP.exe # for unsupervised task
+bp-lda/SupLDA_UnfoldBP/bin/x64/Release/BP_LDA.exe # for unsupervised task
 
-For Windows users, simply open a command prompt window and run "SupLDA_UnfoldBP.exe" or "UnsupLDA_UnfoldBP.exe"
+For Windows users, simply open a command prompt window and run "BP_sLDA.exe" or "BP_LDA.exe".
 
-For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Then, open a terminal and run "mono BP_sLDA.exe" or "mono BP_LDA.exe"
+For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Then, open a terminal and run "mono BP_sLDA.exe" or "mono BP_LDA.exe".
 
 ### Regression demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
-#### Data
+#### Data: data_AmazonMovieReview_1percent/
 .label: 1~5 star rating, shifted to zero mean
 .feature: each line is a document in bag-of-words representation. Colon is used to delimit word index and word counts. Tab is used to delimit different words.
 The data folder is bp-lda/data_AmazonMovieReview_1percent/, in which you can find label files and feature files for train/test, respectively.
@@ -41,6 +41,13 @@ BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 0.5 --nEpoch 20 --Batch
 result_Voc5000.model.Phi and result_Voc5000.model.U: model files with model parameters Phi and U, as described in the paper
 
 result_Voc5000.perf and result_Voc5000.testscore: performance file and test score file
+
+### Classification demo using 20 News Group data set, full vocabulary
+#### Data: data_20NewsGroup/
+
+#### Command
+
+#### Output files
 
 #### Here is a brief explanation on command line arguments:
 
