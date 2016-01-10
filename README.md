@@ -69,7 +69,7 @@ Unsupervised (alpha = 1.001):
 
 Unsupervised (alpha = 0.1):
 
-    BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 0.5 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --flag_DumpFeature true --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
+    BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 0.1 --nEpoch 20 --BatchSize 1000 --BatchSizeSchedule 1:10,2:100,11:1000 --flag_DumpFeature true --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainInputFile train.feature --TestInputFile test.feature --ResultFile result_Voc5000 --ThreadNum 32 --MaxThreadDeg 32
 
 #### Output files:
 result_Voc5000.train.fea and result_Voc5000.test.fea: generated topic distribution vectors for each train/test documents.
