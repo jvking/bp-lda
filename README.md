@@ -143,7 +143,7 @@ result_Voc5000.train.fea and result_Voc5000.test.fea: generated topic distributi
 -------------------------------------------------------
 
 #### References
-1. Chen, Jianshu, et al. "End-to-end Learning of LDA by Mirror-Descent Back Propagation over a Deep Architecture." Advances in Neural Information Processing Systems. 2015.
+1. Chen, Jianshu, et al. End-to-end Learning of LDA by Mirror-Descent Back Propagation over a Deep Architecture. Advances in Neural Information Processing Systems. 2015.
 
 2. J. McAuley and J. Leskovec. From amateurs to connoisseurs: modeling the evolution of user expertise through online reviews. WWW, 2013.
 
