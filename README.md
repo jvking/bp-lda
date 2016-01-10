@@ -17,6 +17,7 @@ For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Th
 -------------------------------------------------------
 
 ### Regression demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
+Raw data can be downloaded from https://snap.stanford.edu/data/web-Movies.html
 #### Data: data_AmazonMovieReview_1percent/
 .label: 1~5 star rating, shifted to zero mean
 
@@ -39,6 +40,7 @@ result_Voc5000.perf and result_Voc5000.testscore: performance file and test scor
 -------------------------------------------------------
 
 ### Classification demo using Multidomain Sentiment Classification data set, vocabulary size 1000
+Raw data can be downloaded from https://www.cs.jhu.edu/~mdredze/datasets/sentiment/
 #### Data: data_MultidomainSentiment/
 .label: 0~1 binary class labels
 
