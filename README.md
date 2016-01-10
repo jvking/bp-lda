@@ -14,7 +14,7 @@ For Windows users, simply open a command prompt window and run "BP_sLDA.exe" or 
 
 For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Then, open a terminal and run "mono BP_sLDA.exe" or "mono BP_LDA.exe".
 
-====================================================
+-------------------------------------------------------
 
 ### Regression demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
 #### Data: data_AmazonMovieReview_1percent/
@@ -36,6 +36,8 @@ result_Voc5000.model.Phi and result_Voc5000.model.U: model files with model para
 
 result_Voc5000.perf and result_Voc5000.testscore: performance file and test score file
 
+-------------------------------------------------------
+
 ### Classification demo using Multidomain Sentiment Classification data set, vocabulary size 1000
 #### Data: data_MultidomainSentiment/
 .label: 0~1 binary class labels
@@ -54,6 +56,8 @@ BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 1000 --nOutput 2 --OutputType softm
 #### Output files
 Same as the regression example.
 
+-------------------------------------------------------
+
 ### Unsupervised demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
 #### Data: data_AmazonMovieReview_1percent/
 #### Command
@@ -67,6 +71,8 @@ BP_LDA.exe --nHid 5 --nHidLayer 10 --nInput 5000 --alpha 0.5 --nEpoch 20 --Batch
 
 #### Output files:
 result_Voc5000.train.fea and result_Voc5000.test.fea: generated topic distribution vectors for each train/test documents.
+
+-------------------------------------------------------
 
 #### Here is a brief explanation on command line arguments:
 
