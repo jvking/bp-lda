@@ -34,16 +34,16 @@ result_Voc5000.model.Phi and result_Voc5000.model.U: model files with model para
 
 result_Voc5000.perf and result_Voc5000.testscore: performance file and test score file
 
-### Classification demo using 20 News Group data set, removing all stop words (vocabulary size 61188)
-#### Data: data_20NewsGroup/
-.label: 0~19 class labels
+### Classification demo using Multidomain Sentiment Classification data set, vocabulary size 1000
+#### Data: data_MultidomainSentiment/
+.label: 0~1 binary class labels
 
 .feature: each line is a document in bag-of-words representation. Colon is used to delimit word index and word counts. Tab is used to delimit different words.
 
 #### Command
-Supervised (alpha = 1.005):
+Supervised (alpha = 1.001):
 
-BP_sLDA.exe --nHid 20 --nHidLayer 10 --nInput 61188 --nOutput 20 --OutputType softmaxCE --alpha 1.005 --beta 1.000001 --nEpoch 200 --BatchSize 1000 --BatchSizeSchedule 1:10,21:100,51:1000 --mu_Phi 0.0001 --nSamplesPerDisplay 10000 --TrainLabelFile raw_preprocNoStopWords/train.label --TestLabelFile raw_preprocNoStopWords/test.label --TrainInputFile raw_preprocNoStopWords/train.feature --TestInputFile raw_preprocNoStopWords/test.feature --ResultFile result --ThreadNum 32 --MaxThreadDeg 32
+BP_sLDA.exe --nHid 5 --nHidLayer 10 --nInput 1000 --nOutput 2 --OutputType softmaxCE --alpha 1.001 --nEpoch 200 --BatchSize 1000 --mu_Phi 0.01 --nSamplesPerDisplay 10000 --TrainLabelFile data_MultiSent/train.label --TestLabelFile data_MultiSent/test.label --TrainInputFile data_MultiSent/train.feature --TestInputFile data_MultiSent/test.feature --ResultFile result_Voc1000 --ThreadNum 32 --MaxThreadDeg 32
 
 #### Output files
 
