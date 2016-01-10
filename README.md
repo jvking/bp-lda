@@ -13,7 +13,9 @@ bp-lda/BP_sLDA/bin/Release/BP_LDA.exe # for unsupervised task
 For Windows users, simply open a command prompt window and run "BP_sLDA.exe" or "BP_LDA.exe".
 
 For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Then, open a terminal and run "mono BP_sLDA.exe" or "mono BP_LDA.exe".
+
 ------------------------------------------------------
+
 ### Regression demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
 #### Data: data_AmazonMovieReview_1percent/
 .label: 1~5 star rating, shifted to zero mean
