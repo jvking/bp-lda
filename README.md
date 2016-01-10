@@ -18,7 +18,6 @@ For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Th
 #### Data: data_AmazonMovieReview_1percent/
 .label: 1~5 star rating, shifted to zero mean
 .feature: each line is a document in bag-of-words representation. Colon is used to delimit word index and word counts. Tab is used to delimit different words.
-The data folder is bp-lda/data_AmazonMovieReview_1percent/, in which you can find label files and feature files for train/test, respectively.
 
 #### Command
 Supervised (alpha = 1.001):
@@ -42,8 +41,10 @@ result_Voc5000.model.Phi and result_Voc5000.model.U: model files with model para
 
 result_Voc5000.perf and result_Voc5000.testscore: performance file and test score file
 
-### Classification demo using 20 News Group data set, full vocabulary
+### Classification demo using 20 News Group data set, removing all stop words (vocabulary size 61188)
 #### Data: data_20NewsGroup/
+.label: 0~19 class labels
+.feature: each line is a document in bag-of-words representation. Colon is used to delimit word index and word counts. Tab is used to delimit different words.
 
 #### Command
 
