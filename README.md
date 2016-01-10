@@ -6,9 +6,9 @@ Link to this paper: http://papers.nips.cc/paper/5967-end-to-end-learning-of-lda-
 
 To run the codes, there are two executables (one depends on the other). You need to copy both executables to the same working directory.
 
-bp-lda/SupLDA_UnfoldBP/bin/x64/Release/BP_sLDA.exe # for supervised task
+bp-lda/BP_sLDA/bin/Release/BP_sLDA.exe # for supervised task
 
-bp-lda/SupLDA_UnfoldBP/bin/x64/Release/BP_LDA.exe # for unsupervised task
+bp-lda/BP_sLDA/bin/Release/BP_LDA.exe # for unsupervised task
 
 For Windows users, simply open a command prompt window and run "BP_sLDA.exe" or "BP_LDA.exe".
 
@@ -17,6 +17,7 @@ For Linux/Mac users, you need to install mono (http://www.mono-project.com/). Th
 ### Regression demo using Amazon Movie Review data set, 1% data, vocabulary size 5000
 #### Data: data_AmazonMovieReview_1percent/
 .label: 1~5 star rating, shifted to zero mean
+
 .feature: each line is a document in bag-of-words representation. Colon is used to delimit word index and word counts. Tab is used to delimit different words.
 
 #### Command
@@ -44,6 +45,7 @@ result_Voc5000.perf and result_Voc5000.testscore: performance file and test scor
 ### Classification demo using 20 News Group data set, removing all stop words (vocabulary size 61188)
 #### Data: data_20NewsGroup/
 .label: 0~19 class labels
+
 .feature: each line is a document in bag-of-words representation. Colon is used to delimit word index and word counts. Tab is used to delimit different words.
 
 #### Command

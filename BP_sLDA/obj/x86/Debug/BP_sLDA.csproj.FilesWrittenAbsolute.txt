@@ -1,0 +1,7 @@
+/Users/jianshuchen/Dropbox/Research@dropbox/Code@dropbox/BP_sLDA/LDA_MirrorDescentBackProp/BP_sLDA/obj/x86/Debug/.NETFramework,Version=v4.5.AssemblyAttribute.cs
+/Users/jianshuchen/Dropbox/Research@dropbox/Code@dropbox/BP_sLDA/LDA_MirrorDescentBackProp/BP_sLDA/bin/Debug/BP_sLDA.exe.mdb
+/Users/jianshuchen/Dropbox/Research@dropbox/Code@dropbox/BP_sLDA/LDA_MirrorDescentBackProp/BP_sLDA/bin/Debug/BP_sLDA.exe
+/Users/jianshuchen/Dropbox/Research@dropbox/Code@dropbox/BP_sLDA/LDA_MirrorDescentBackProp/BP_sLDA/obj/x86/Debug/BP_sLDA.exe
+/Users/jianshuchen/Dropbox/Research@dropbox/Code@dropbox/BP_sLDA/LDA_MirrorDescentBackProp/BP_sLDA/obj/x86/Debug/BP_sLDA.exe.mdb
+/Users/jianshuchen/Dropbox/Research@dropbox/Code@dropbox/BP_sLDA/LDA_MirrorDescentBackProp/BP_sLDA/bin/Debug/BP_LDA.exe
+/Users/jianshuchen/Dropbox/Research@dropbox/Code@dropbox/BP_sLDA/LDA_MirrorDescentBackProp/BP_sLDA/bin/Debug/BP_LDA.exe.mdb

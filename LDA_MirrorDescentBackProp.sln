@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BP_LDA", "BP_LDA\BP_LDA.csproj", "{3BDB48AE-6422-4B16-957F-CA218A3D2C91}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BP_sLDA", "BP_sLDA\BP_sLDA.csproj", "{F6AA0931-4B70-4415-85A8-3FCF7E85E1EC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3BDB48AE-6422-4B16-957F-CA218A3D2C91}.Debug|x86.ActiveCfg = Debug|x86
+		{3BDB48AE-6422-4B16-957F-CA218A3D2C91}.Debug|x86.Build.0 = Debug|x86
+		{3BDB48AE-6422-4B16-957F-CA218A3D2C91}.Release|x86.ActiveCfg = Release|x86
+		{3BDB48AE-6422-4B16-957F-CA218A3D2C91}.Release|x86.Build.0 = Release|x86
+		{F6AA0931-4B70-4415-85A8-3FCF7E85E1EC}.Debug|x86.ActiveCfg = Debug|x86
+		{F6AA0931-4B70-4415-85A8-3FCF7E85E1EC}.Debug|x86.Build.0 = Debug|x86
+		{F6AA0931-4B70-4415-85A8-3FCF7E85E1EC}.Release|x86.ActiveCfg = Release|x86
+		{F6AA0931-4B70-4415-85A8-3FCF7E85E1EC}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+EndGlobal
